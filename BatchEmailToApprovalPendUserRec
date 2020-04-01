@@ -1,0 +1,89 @@
+//Execute Anonymous Code
+//Id batchApprovalId = Database.executeBatch(new BatchSendEmailUserforPendingRec(), 10);
+global class BatchEmailToApprovalPendUserRec implements Database.Batchable<sObject>, Database.stateful {
+
+    global Set<String> oemRemUSerIDs = new Set<String>();
+    global Set<String> cplRemUSerIDs = new Set<String>();    
+    
+    global Database.QueryLocator start(Database.BatchableContext bc) {
+    //Querying on Territory_User__c object
+        return Database.getQueryLocator( 'SELECT Id, User__c FROM Territory_User__c');
+        
+    }
+
+    global void execute(Database.BatchableContext bc, List<Territory_User__c> records){
+        // looping meta data records to get the CPL related object
+        try{
+            Set<Id> userIds = new Set<Id>();
+    
+            for(Territory_User__c  objtemp : records){ 
+                userIds.add(objtemp.User__c );
+            }   
+            
+            Default_Configuration__c obj= Default_Configuration__c.getInstance(); 
+            integer notificationDays=integer.Valueof(obj.Price_Request_Notification_Days__c); 
+            datetime DateCompare = Date.Today().addDays(-notificationDays);
+                            
+            List<ProcessInstanceWorkitem> processInstWorkItemList = [ SELECT id,ActorId,ProcessInstance.TargetObjectID 
+                                                                        FROM ProcessInstanceWorkitem 
+                                                                       WHERE ActorId =: userIds
+                                                                         AND ProcessInstance.Status =: UtilityCls.Pending AND ProcessInstance.createdDate <=: DateCompare ];                                        
+            
+            for( ProcessInstanceWorkitem eachPWI : processInstWorkItemList ){
+                if( eachPWI.ProcessInstance.TargetObjectid.getSObjectType().getDescribe().getName().contains('CPL_') ){
+                    cplRemUSerIDs.add( eachPWI.ActorId );
+                }
+                if( eachPWI.ProcessInstance.TargetObjectid.getSObjectType().getDescribe().getName().contains('OPE_') ){
+                    oemRemUSerIDs.add( eachPWI.ActorId );
+                }
+            }/* End of for */                                                           
+            System.debug( 'cplRemUSerIDs --> '+cplRemUSerIDs );
+            System.debug( 'oemRemUSerIDs --> '+oemRemUSerIDs ); 
+        }catch( exception ex ){ System.debug( 'Message --> '+ex.getMessage()+' Stack_trace --> '+ex.getStackTraceString() ); }    
+    }/* End of Execute */    
+
+    global void finish(Database.BatchableContext bc){
+        System.debug( 'In finish --> ' );
+        System.debug( 'cplRemUSerIDs --> '+cplRemUSerIDs );
+        System.debug( 'oemRemUSerIDs --> '+oemRemUSerIDs ); 
+        if( !cplRemUSerIDs.isEmpty() || !oemRemUSerIDs.isEmpty() ){
+            Map<String,EmailTemplate> type2EmailTemplate = new Map<String,EmailTemplate>();
+            For( EmailTemplate eachTemplate : [ SELECT id, name, htmlValue, subject, DeveloperName                                               
+                                                  FROM EmailTemplate
+                                                 WHERE DeveloperName IN ('OPE_Reminder','CPL_Reminder') ] ){
+                if( eachTemplate.DeveloperName.containsIgnoreCase( 'OEM' ) ){ type2EmailTemplate.put( 'OEM', eachTemplate ); }                    
+                if( eachTemplate.DeveloperName.containsIgnoreCase( 'CPL' ) ){ type2EmailTemplate.put( 'CPL', eachTemplate ); }
+                    
+            }/* End of for */                 
+            
+            List<Messaging.SingleEmailMessage> emailList = new List<Messaging.SingleEmailMessage>();
+            if( !cplRemUSerIDs.isEmpty() ){ emailList.addAll( getSMEObj( cplRemUSerIDs, type2EmailTemplate.get( 'CPL' ) ) ); }                
+            if( !oemRemUSerIDs.isEmpty() ){ emailList.addAll( getSMEObj( oemRemUSerIDs, type2EmailTemplate.get( 'OEM' ) ) ); }
+            System.debug( 'emailList --> '+emailList );    
+             For( Messaging.SendEmailResult eachMail : Messaging.sendEmail( emailList ) ){
+                 System.debug( 'In Success --> ' );
+             }
+            
+            //if( !emailList.isEmpty() ){ Messaging.sendEmail( emailList ); }
+        }/* End of if */
+    }/* End of finish */    
+    
+    Global List<Messaging.SingleEmailMessage> getSMEObj( Set<String> userIdsSet, EmailTemplate template ){
+        List<Messaging.SingleEmailMessage> emailList = new List<Messaging.SingleEmailMessage>();
+        Messaging.SingleEmailMessage eachMail;
+        String htmlBody = template.htmlValue;
+        htmlBody = htmlBody.replace( '######',label.ApprovalComponentLink );
+        String subject = template.subject;
+        for( String eachUserId : userIdsSet ){
+            eachMail = new Messaging.SingleEmailMessage();
+            eachMail.setSubject( subject );
+            eachMail.setHtmlBody( htmlBody );
+            eachMail.setSenderDisplayName('Salesforce Support');
+            eachMail.setToAddresses( new List<String>{ eachUserId } ); // '0054C000001iiFOQAY'
+            emailList.add( eachMail );           
+         }/* End of for */
+         
+         return emailList;
+    }/* End of method */
+
+}
