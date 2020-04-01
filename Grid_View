@@ -1,0 +1,1255 @@
+COMPONENT
+<aura:component extends="c:Grid_Base" implements="force:appHostable,flexipage:availableForAllPageTypes" access="global">
+    <aura:attribute name="accountId" type="Id" />
+    <aura:attribute name="productId" type="Id"/>
+    <aura:attribute name="productName" type="string"/>
+    <aura:attribute name="productCategories" type="List"/>
+    <aura:attribute name="productCategory" type="String"/>
+    <aura:attribute name="gridType" type="String" default="Price_Grid"/>
+    <aura:attribute name="gridModalPromise" type="Aura.Action"/>
+    <aura:attribute name="isPhone" type="String" default="{!$Browser.formFactor == 'PHONE'}" />
+    <aura:attribute name="screenMessage" type="String" default="Select a Product Category or Search" />
+    <aura:attribute name="disableSearchBox" type="Boolean" default="false" />
+    <aura:attribute name="displaySearchBox" type="Boolean" default="true" />
+    <aura:attribute name="displaySpinner" type="Boolean" default="false" />
+    <aura:attribute name="displayFilters" type="Boolean" default="false" /> <!-- Added by MB - US 80853 - 10/2/19 -->
+    <aura:attribute name="modalHeight" type="string"/> <!-- Added by MB - US 80853 - 10/2/19 -->
+    <aura:attribute name="multipleProductCategories" type="Boolean" default="false" />
+    <aura:attribute name="count" type="Integer" default="" />
+    <aura:attribute name="nonCPLProd" type="List" />    
+    <aura:attribute name="cplProds" type="List" />    
+    
+    <!-- CREATED BY - MUDIT - BUG 69643 START -->
+    <aura:attribute name="firstElementPC" type="string"/>
+    <!-- CREATED BY - MUDIT - BUG 69643 END -->
+    
+    <!-- CREATED BY - MUDIT -->
+    <aura:attribute name="disableFilterBtn" type="Boolean" default="false" />
+    <!-- CREATED BY - MUDIT -->
+    
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}"/>
+    <aura:handler event="c:Grid_ModalEvent" action="{!c.handleModalEvent}"/>
+    <aura:handler event="c:Grid_DataUpdateEvent" action="{!c.handleDataUpdateEvent}"/>    
+    <aura:attribute name="productCategoryName" type="String"/>    
+    <aura:set attribute="hasPagination" value="true" />
+    
+    <!-- MOBILE PRICING ATTRIBUTES ADDED BY MUDIT 04-12-2019 -->
+    <aura:attribute name="hideMP" type="Boolean" default="false" />
+    <aura:attribute name="MPCheckObj" type="object" />
+    <aura:attribute name="colorMap" type="List" />
+    <aura:attribute name="showAddProduct" type="Boolean" default="false" />
+    <aura:attribute name="showSelectGPScreen" type="Boolean" default="false" />
+    <aura:attribute name="isShowMenuButton" type="Boolean" default="true" />
+    
+    <aura:attribute name="ECPClick" type="Boolean" default="false" />
+    <aura:attribute name="CLTPClick" type="Boolean" default="false" />
+    <aura:attribute name="RCPClick" type="Boolean" default="false" />
+    
+    <aura:attribute name="openGroupPriceModal" type="Boolean" default="false" />
+    <aura:attribute name="openTimePriceModal" type="Boolean" default="false" />
+    <aura:attribute name="openDeleteConfirmation" type="Boolean" default="false" />
+    
+    <aura:attribute type="List" name="selectedCHKBX"/>    
+    <aura:handler name="refreshTopParent" event="c:MP_ChangeEvent" action="{!c.handleComponentEvent}"/>
+    
+    <!-- SINGLE EVENT-->
+    <aura:handler name="openModalEvent" event="c:MP_ModalEvent" action="{!c.handleOpenModal}"/>
+    <!-- SINGLE EVENT-->
+    <!-- SINGLE EDIT -->    
+    <aura:attribute name="showSingleMPEditPrice" type="Boolean" default="false" />
+    <aura:attribute type="string" name="selectedRecordId"/>
+    <aura:attribute name="PriceGridUniqueKey" type="string"/>
+    <aura:attribute name="subCategory" type="string"/>
+    <aura:attribute name="isPriceGridRecord" type="boolean" default="false"/>
+    <!-- SINGLE EDIT -->
+    
+    <!-- SINGLE Limited -->    
+    <aura:attribute name="showSingleMPCreateLimitedTimePrice" type="Boolean" default="false" />
+    <aura:attribute name="rowEndDate" type="string" />
+    <!-- SINGLE Limited -->    
+    
+    <!-- MOBILE PRICING ATTRIBUTES ADDED BY MUDIT 04-12-2019 -->
+    
+    <div>{!v.body}</div>  
+    <aura:if isTrue="{!!empty(v.viewData.account)}">
+        <!-- HEADER START -->
+        <div class="slds-page-header">
+            <div class="slds-grid">
+                <div class="slds-col slds-has-flexi-truncate">
+                    <div class="slds-media slds-no-space slds-grow">
+                        <div class="slds-media__figure">
+                            <span class="slds-icon_container slds-icon-standard-account" title="Customer Price List">
+                                <lightning:icon iconName="standard:contract" size="{!if($Browser.formFactor != 'DESKTOP','large','')}"/>
+                            </span>
+                        </div>
+                        <div class="slds-media__body">
+                            <nav>
+                                <ol class="slds-breadcrumb slds-line-height_reset">
+                                    <li class="slds-breadcrumb__item slds-truncate headerTitle">
+                                        <span>{!v.gridType == 'Merchandizing_Vehicle_Price_List' ? v.productName + ' Price List':'Customer Price List'}</span>
+                                    </li>
+                                    <li class="slds-breadcrumb__item slds-truncate headerTitle">
+                                        <span>{!v.productCategoryName}</span>
+                                    </li>
+                                </ol>
+                            </nav>
+                            <h1 class="slds-page-header__title slds-m-right_small slds-align-middle slds-truncate headerSubTitle" title="{!v.viewData.account.Name}">{!v.viewData.account.Name} ({!v.viewData.account.CAMS_Account_number__c})</h1>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-col slds-no-flex slds-grid slds-align-top">
+                    <aura:if isTrue="{!!v.showAddProduct}">
+                        <aura:if isTrue="{!$Browser.formFactor == 'DESKTOP'}">
+                            <lightning:button variant="neutral" aura:id="back" label="Back" onclick="{!c.backToRecord}" value="Back" />
+                            <aura:set attribute="else">
+                                <c:insightBackButton accountId="{!v.accountId}"/>
+                            </aura:set>
+                        </aura:if>
+                        <aura:if isTrue="{!$Browser.formFactor != 'PHONE'}">
+                            <lightning:button label="Account Report" variant="brand" onclick="{!c.openAccountReportComponent}"/>
+                            <aura:if isTrue="{!and( or( v.gridType == 'Merchandizing_Vehicle_Price_List',v.gridType == 'Customer_Price_List' ),!empty(v.viewData.productCategoryId) )}">
+                                <aura:if isTrue="{!and(v.isShowMenuButton,not(v.hideMP))}">
+                                    <aura:if isTrue="{!or( v.gridType == 'Customer_Price_List',v.gridType == 'Merchandizing_Vehicle_Price_List' ) }">
+                                        <lightning:button label="Add New Product" variant="brand" onclick="{!c.showAddProduct}"/>
+                                    </aura:if>
+                                    <!--<lightning:button label="Email Dealer CPL" variant="brand" onclick="{!c.showModal}"/>-->
+                                    <lightning:button label="Submit" variant="brand" onclick="{!c.handleSubmitForApproval}"/>
+                                    <lightning:button label="Multi Pricing" variant="brand" onclick="{!c.showGroupPricing}"/>
+                                </aura:if>
+                            </aura:if>
+                            <aura:set attribute="else">
+                                <div class="slds-float_left">
+                                    <lightning:buttonMenu variant="border-filled" alternativeText="Show menu" menuAlignment="right">
+                                        <lightning:menuItem value="MenuItemOne" label="Account Report" />
+                                        <lightning:menuItem value="MenuItemTwo" label="Add New Product" />
+                                        <lightning:menuItem value="MenuItemThree" label="Email Dealer CPL" />
+                                        <lightning:menuItem value="MenuItemFour" label="Multi Pricing" />
+                                    </lightning:buttonMenu>
+                                </div>
+                            </aura:set>
+                        </aura:if>                                                                                                                
+                    </aura:if>
+                    <aura:if isTrue="{!v.showAddProduct}">
+                        <lightning:button label="Add Product To Price List" variant="brand" onclick="{!c.addProductToPriceList}"/>
+                        
+                        <lightning:button label="Cancel" onclick="{!c.closeAddProduct}"/>
+                    </aura:if>
+                    <aura:if isTrue="{!v.ECPClick}">
+                        <lightning:button label="Set Multi Pricing" variant="brand" onclick="{!c.onclickSetGroupPrice}"/>                                        
+                    </aura:if> 
+                    <aura:if isTrue="{!v.CLTPClick}">
+                        <lightning:button label="Set Limited Time Price" variant="brand" onclick="{!c.onclickTimePrice}"/>                                    
+                    </aura:if>
+                    <aura:if isTrue="{!v.RCPClick}">
+                        <lightning:button label="Remove Selected Product" variant="brand" onclick="{!c.onclickDelete}"/>                                    
+                    </aura:if>
+                    <aura:if isTrue="{!!v.isShowMenuButton}">
+                        <lightning:button label="Cancel Multi Pricing" onclick="{!c.onclickCancelGroupPrice}"/>
+                    </aura:if>
+                </div>
+            </div>
+            
+        </div>
+        <!-- HEADER END -->
+    </aura:if>
+    
+    <aura:if isTrue="{!!v.showAddProduct}">
+        <div class="{!'slds-grid slds-wrap slds-gutters slds-p-vertical_medium slds-border_bottom '+($Browser.formFactor == 'PHONE'?'':' slds-grid_align-spread')}">
+            <div class="slds-col">
+                <div class="slds-grid slds-wrap">
+                    <!-- Start of Code MB - Bug 70808 - 2/20/19 -->
+                    <aura:if isTrue="{!$Browser.formFactor == 'PHONE'}">
+                        <div class="slds-col">
+                            <div class="slds-grid slds-wrap">
+                                <div class="slds-col slds-size_9-of-12">
+                                    <aura:if isTrue="{!v.viewData.productCategoryId != null &amp;&amp; v.viewData.productCategoryId != ''}">
+                                        <lightning:input label="Search" type="text"
+                                                         placeholder="Search" value="{!v.viewData.globalSearchText}"
+                                                         onblur="{!c.doSearch}" disabled="{!v.viewData.hasUnselectedPrimaryFilters}"/>
+                                        <aura:set attribute="else">
+                                            <lightning:input label="Search" type="text"
+                                                             placeholder="Search" value="{!v.viewData.globalSearchText}"
+                                                             disabled="{!v.disableSearchBox}"
+                                                             minlength="3"
+                                                             messageWhenTooShort="Please enter 3 or more characters to initiate a search"
+                                                             onblur="{!c.doMobileSearch}"/>
+                                        </aura:set>
+                                    </aura:if>
+                                </div>
+                                <div class="slds-col slds-float-left slds-size_3-of-12 slds-p-top_xx-small">
+                                    <label>&nbsp;</label><br/>
+                                    <!--lightning:buttonIcon iconClass="refreshIconSize" iconName="utility:refresh" onclick="{!c.doReset}" variant="base"/-->
+                                    <lightning:button label="Reset" onclick="{!c.doReset}" variant="brand"/>
+                                </div>
+                            </div>
+                        </div>
+                    </aura:if>
+                    <!-- End of Code MB - Bug 70808 - 2/20/19 -->
+                    <div class="slds-col">
+                        <div class="{!'slds-form-element ' + ($Browser.formFactor == 'PHONE' ? 'slds-p-around_small' : '')}">
+                            <!-- label style="{!'font-size:' + ($Browser.formFactor == 'PHONE' ? v.viewData.headerFontSizeMobile : v.viewData.headerFontSize)}">Product Category</label-->
+                            <lightning:select class="{!v.multipleProductCategories ? 'boldred' : ''}" name="selectItem" label="Product Category" value="{!v.viewData.productCategoryId}" aura:id="lightningSelect" onchange="{!c.onCategorySelection}">
+                                <aura:if isTrue="{!v.gridType!='Merchandizing_Vehicle_Price_List' || v.productCategories.length!=1 }">
+                                    <option value="">- Product Category - {!v.multipleProductCategories ? '(' + v.count + ')' : ''}</option>
+                                </aura:if>
+                                <aura:if isTrue="{!!empty(v.productCategories)}">
+                                    <aura:iteration items="{!v.productCategories}" var="prodCat">
+                                        <option value="{!prodCat.Id}" selected="{!v.firstElementPC == prodCat.Id}">{!prodCat.Product_Category__c}</option>
+                                    </aura:iteration>
+                                </aura:if>
+                            </lightning:select>
+                        </div>
+                    </div>
+                    <aura:if isTrue="{!v.viewData.productCategoryId != null &amp;&amp; v.viewData.productCategoryId != '' &amp;&amp; !empty(v.viewData.listOfPrimaryFilters)}">
+                        <aura:iteration items="{!v.viewData.listOfPrimaryFilters}" var="filter">
+                            <aura:if isTrue="{!!empty(filter.listOfFilterOptions)}">
+                                <div class="slds-col">
+                                    <div class="{!'slds-form-element ' + ($Browser.formFactor == 'PHONE' ? 'slds-p-around_small' : '')}">
+                                        <!--label style="{!'font-size:' + ($Browser.formFactor == 'PHONE' ? v.viewData.headerFontSizeMobile : v.viewData.headerFontSize)}">{!filter.label}</label -->
+                                        <lightning:select name="selectItem" label="{!filter.label}" value="{!filter.stringValue}" onchange="{!c.onPrimaryFilterChange}">
+                                            <option value="">- Select -</option>
+                                            <aura:iteration items="{!filter.listOfFilterOptions}" var="opt">
+                                                <option value="{!opt.value}">{!opt.label}</option>
+                                            </aura:iteration>
+                                        </lightning:select>
+                                    </div>
+                                </div>
+                            </aura:if>
+                        </aura:iteration>
+                    </aura:if>
+                </div>
+            </div>
+            
+            <div class="slds-col">
+                <div class="slds-grid slds-wrap">
+                    <aura:if isTrue="{!$Browser.formFactor != 'PHONE'}">
+                        <!--aura:if isTrue="{!or((v.viewData.productCategoryId != null &amp;&amp; v.viewData.productCategoryId != ''), v.gridType == 'Merchandizing_Vehicle_Price_List')}"--> <!-- Added by MB - Bug 70808 - 2/20/19 -->
+                        <!--div class="slds-col">
+                            &nbsp;
+                            <lightning:input label="Search" type="search" variant="label-hidden"
+                                             placeholder="Search" value="{!v.viewData.searchKeyword}"
+                                             onchange="{!c.onFilterKeywordChange}"
+                                             disabled="{!empty(v.viewData.listOfData_Server)}"
+                                             minlength="3"
+                                             messageWhenTooShort="Please enter more than 2 characters to initiate a search"/>
+                        </div-->
+                        <!-- Start of Code MB - Bug 70808 - 2/20/19 -->
+                        <aura:if isTrue="{!v.displaySearchBox}">
+                            <div class="slds-col" onkeypress="{!c.onGlobalSearchTextChange}">
+                                &nbsp;
+                                <lightning:input label="Search" type="text" variant="label-hidden"
+                                                 placeholder="Search All Categories" value="{!v.viewData.globalSearchText}"
+                                                 disabled="{!v.disableSearchBox}"
+                                                 minlength="3"
+                                                 messageWhenTooShort="Please enter 3 or more characters to initiate a search"/>
+                            </div>
+                            
+                            <!--/aura:if-->
+                            <div class="slds-col">
+                                <label>&nbsp;</label><br/>
+                                <!--lightning:buttonIcon iconName="utility:refresh" onclick="{!c.doReset}" variant="base"/-->
+                                <lightning:button label="Reset" onclick="{!c.doReset}" variant="brand"/>
+                                <!--disabled="{!empty(v.viewData.listOfData_Server)}"-->
+                            </div>
+                        </aura:if>
+                        <!-- End of Code MB - Bug 70808 - 2/20/19 -->
+                        <div class="slds-col">
+                            <label>&nbsp;</label><br/>
+                            <lightning:buttonIcon iconName="utility:filterList" alternativeText="Filter"
+                                                  onclick="{!c.displayFilterOptions}" variant="base"
+                                                  disabled="{!or(empty(v.viewData.listOfData_Server),v.disableFilterBtn)}"/>
+                            <aura:if isTrue="{!v.viewData.activeFilterCount > 0}">
+                                <span class="slds-badge filter-badge">{!v.viewData.activeFilterCount}</span>
+                            </aura:if>
+                        </div>
+                        <!-- Start of Comment MB - Bug 70808 - 2/20/19 -->
+                        <!--aura:set attribute="else"-->
+                        <!--div class="slds-col">
+                            <lightning:input label="Search" type="search"
+                                placeholder="Search" value="{!v.viewData.searchKeyword}"
+                                onblur="{!c.doSearch}" disabled="{!v.viewData.hasUnselectedPrimaryFilters}"/>
+                        </div-->
+                        
+                        <!-- End of Comment MB - Bug 70808 - 2/20/19 -->
+                        
+                        <!--/aura:set-->
+                    </aura:if>
+                </div>
+            </div>
+            <aura:if isTrue="{!$Browser.formFactor == 'PHONE'}">
+                <div class="slds-col slds-size_12-of-12">
+                    <div class="slds-form-element__icon">                
+                        <lightning:icon class="indicator-icon slds-m-left_medium slds-m-top_x-small slds-p-bottom_small" iconName="utility:info" size="x-small" alternativeText="Indicator"/>
+                        <div aura:id="divHelp" class="indicator-body slds-popover slds-popover_tooltip slds-nubbin_top-left"
+                             role="tooltip" aria-live="polite">
+                            <div class="slds-popover__body">
+                                <div class="indicator-item">
+                                    <span class="icon">I</span>
+                                    Inherited price from parent list
+                                </div>
+                                <div class="indicator-item">
+                                    <span class="icon">G</span>
+                                    Inherited price from group price
+                                </div>
+                                <div class="indicator-item">
+                                    <span class="icon">Q</span>
+                                    Prices listed have a minimum quantity
+                                </div>
+                                <div class="indicator-item">
+                                    <span class="icon">C</span>
+                                    Cut-at-roll length has a minimum quantity
+                                </div>
+                                <div class="indicator-item">
+                                    <span class="icon">$</span>
+                                    Billing price does not match net price
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </aura:if>
+        </div>
+        <div class="exampleHolder">
+            <lightning:spinner aura:id="chartSpinner" class="slds-hide"/>
+        </div>
+        <aura:if isTrue="{!v.displaySpinner}">
+            <lightning:spinner aura:id="displaySpinner"/>
+        </aura:if>
+        <aura:if isTrue="{!$Browser.isDesktop == true}">
+            <div>
+                <c:Grid_DataTable aura:id="dataTable" viewData="{!v.viewData}" accountId="{!v.accountId}" gridType="{!v.gridType}" timeStamp="{!v.timeStamp}" productCategoryName="{!v.productCategoryName}" showMenuBtn="{!v.isShowMenuButton}" selectedCHK="{!v.selectedCHKBX}" hideMP="{!v.hideMP}" MPCheckObj="{!v.MPCheckObj}" colorMap="{!v.colorMap}" nonCPLProd="{!v.nonCPLProd}" cplProds="{!v.cplProds}"/>
+            </div>
+            <aura:set attribute="else">
+                <aura:if isTrue="{!v.viewData.listOfData.length>0}"><!-- Added by MB - Bug 70808 - 2/22/19 -->
+                    <ui:scrollerWrapper class="{!$Browser.isTablet == true ? 'scrollerSize' : v.viewData.sObjectName == 'CPL_Cushion__c' ? 'scrollerSize3Filters' : 'scrollerSize2Filters'}">
+                        <div>
+                            <!--<c:Grid_DataTable aura:id="dataTable" viewData="{!v.viewData}" accountId="{!v.accountId}" gridType="{!v.gridType}" timeStamp="{!v.timeStamp}" productCategoryName="{!v.productCategoryName}"/>-->
+                            <c:Grid_DataTable aura:id="dataTable" viewData="{!v.viewData}" accountId="{!v.accountId}" gridType="{!v.gridType}" timeStamp="{!v.timeStamp}" productCategoryName="{!v.productCategoryName}" showMenuBtn="{!v.isShowMenuButton}" selectedCHK="{!v.selectedCHKBX}" hideMP="{!v.hideMP}" MPCheckObj="{!v.MPCheckObj}" colorMap="{!v.colorMap}"/>
+                        </div>
+                    </ui:scrollerWrapper>
+                </aura:if>
+            </aura:set>
+        </aura:if>
+        <center>
+            <aura:if isTrue="{!v.viewData.hasMessage}">
+                <div class="{! 'noResults slds-p-vertical--xx-large slds-align--absolute-center slds-grid--vertical slds-text-align--center slds-text-color--weak ' + (v.isPhone ? 'slds-m-top--xx-small' : 'slds-m-top--large')}"
+                     data-aura-rendered-by="1301:0" style="{!v.isPhone ? 'padding-top: 0px' : ''}">
+                    <aura:if isTrue="{!v.viewData.message != 'No Results'}">
+                        <figure class="{! v.isPhone ? 'slds-p-bottom--medium' : 'slds-p-bottom--xx-large'}" data-aura-rendered-by="1302:0">
+                            <span data-aura-rendered-by="1305:0" class="uiImage" data-aura-class="uiImage">
+                                <img data-aura-rendered-by="1303:0" src="/img/search/no-results.png" class="" alt="No results found" style="{!(v.isPhone ? 'width:240px;height:160px' : '')}" />
+                            </span>
+                        </figure>
+                    </aura:if>
+                    <div class="{! 'noResultsTitle slds-p-bottom--large ' + (v.isPhone ? 'slds-text-heading_small' : 'slds-text-heading--large')}">{!v.viewData.message}</div>
+                    <div class="slds-text-heading--small noResultsMessage">
+                        <!--<div class="tips"><aura:text value="{!v.viewData.tip}"/></div>-->
+                    </div>
+                </div>
+            </aura:if>
+        </center>
+        <lightning:overlayLibrary aura:id="secondaryFilterOverlay"/>
+        <lightning:overlayLibrary aura:id="reportFilterOverlay"/>
+        <!-- Start of Code - MB - US 80853 - 10/2/19 -->
+        <aura:if isTrue="{!v.displayFilters}">
+            <section role="dialog" tabindex="-1" aria-labelledby="modal-heading-01" aria-modal="true" aria-describedby="modal-content-id-1" class="slds-modal slds-backdrop slds-fade-in-open">
+                <div class="slds-modal__container setModalHeight">
+                    <header class="slds-modal__header">
+                        <lightning:buttonIcon iconName="utility:close" iconClass="white" class="slds-modal__close" title="Close" onclick="{!c.handleModalEvent}" />
+                        <h2 id="modal-heading-01" class="slds-modal__title slds-hyphenate">Search and Filter</h2>
+                    </header>
+                    <div class="slds-modal__content slds-p-around_medium" id="modal-content-id-1">
+                        <c:Grid_SecondaryFilters viewData="{!v.viewData}"/>
+                    </div>
+                </div>
+            </section>
+        </aura:if>
+        <!-- End of Code - MB - US 80853 - 10/2/19 -->
+    </aura:if>  
+    
+    
+    <aura:if isTrue="{!v.showAddProduct}">
+        <c:MP_NewProductTable aura:id="mpSelect" 
+                              ProductCategory="{!v.viewData.productCategoryId}" 
+                              listOfData="{!v.viewData.listOfData}"
+                              showAddProduct="{!v.showAddProduct}"
+                              accountId="{!v.accountId}"
+                              productCategoryName="{!v.productCategoryName}"
+                              viewAllData="{!v.viewData}" 
+                              cplProds="{!v.cplProds}"
+                              nonCPLProd="{!v.nonCPLProd}"
+                              gridType="{!v.gridType}"/>
+    </aura:if>
+    
+    
+    <aura:if isTrue="{!v.showSelectGPScreen}">
+        <c:MP_SelectGPScreen openModal="{!v.showSelectGPScreen}" showMenuBtn="{!v.isShowMenuButton}" isECPClick="{!v.ECPClick}" isCLTPClick="{!v.CLTPClick}" isRCPClick="{!v.RCPClick}"/>
+    </aura:if>
+    
+    <aura:if isTrue="{!v.openGroupPriceModal}">
+        <c:MP_EditGroupPriceComponent 
+                                      openModal="{!v.openGroupPriceModal}"
+                                      objName="{#v.viewData.sObjectName}"
+                                      productCategoryId="{#v.viewData.productCategoryId}"
+                                      MultiRecordId="{!v.selectedCHKBX}"/>
+    </aura:if>
+    
+    <aura:if isTrue="{!v.openTimePriceModal}">
+        <c:MP_CreateLimitedTimePrice 
+                                     openModal="{!v.openTimePriceModal}" 
+                                     MultiRecordId="{!v.selectedCHKBX}"
+                                     objName="{#v.viewData.sObjectName}"
+                                     productCategoryId="{#v.viewData.productCategoryId}"/>
+    </aura:if>
+    
+    
+    <aura:if isTrue="{!v.showSingleMPEditPrice}">
+    	<c:MP_EditPriceComponent 
+                                 recordId="{#v.selectedRecordId}"
+                                 objName="{#v.viewData.sObjectName}"
+                                 productCategoryId="{#v.viewData.productCategoryId}"                                 
+                                 openModal="{!v.showSingleMPEditPrice}"
+                                 PriceGridUniqueKey="{!v.PriceGridUniqueKey}"
+                                 subCategory="{!v.subCategory}"
+                                 isPriceGridRecord="{!v.isPriceGridRecord}"
+                                 gridType="{!v.gridType}"
+                                 />
+    </aura:if>
+    
+    <aura:if isTrue="{!v.showSingleMPCreateLimitedTimePrice}">
+        <c:MP_CreateLimitedTimePrice 
+                                     openModal="{!v.showSingleMPCreateLimitedTimePrice}" 
+                                     singleRecordId="{#v.selectedRecordId}"
+                                     objName="{#v.viewData.sObjectName}"
+                                     productCategoryId="{#v.viewData.productCategoryId}"
+                                     PriceGridUniqueKey="{!v.PriceGridUniqueKey}"
+                                     subCategory="{!v.subCategory}" 
+                                     gridType="{!v.gridType}"
+                                     rowEndDate="{!v.rowEndDate}"
+                                     />
+    </aura:if>
+    <aura:if isTrue="{!v.openDeleteConfirmation}">
+    	<c:MP_Confirmation
+                           openModal="{!v.openDeleteConfirmation}"
+                           headerText="Remove Price"
+                           cplRecordIds="{!v.selectedCHKBX}"
+                           modalFor="REMOVE"
+                           />
+    </aura:if>
+</aura:component>
+
+CONTROLLER
+({
+    doInit : function(component, event, helper) {		        
+        //Start of Code MB - Bug 70808 - 2/20/19
+        if(component.get('v.gridType') === 'Merchandizing_Vehicle_Price_List'){
+            component.set('v.screenMessage','Select a Product Category');
+            component.set('v.displaySearchBox', false);
+        }
+        //End of Code MB - Bug 70808 - 2/20/19
+        console.log("### Grid_View doInit");
+        //Start of Code - MB - 07/30/18 - Bug 63360
+        var _spinner = component.find("chartSpinner");
+        $A.util.removeClass(_spinner, "slds-hide");
+        $A.util.addClass(_spinner, "slds-show");
+        //End of Code - MB - 07/30/18 - Bug 63360
+        helper.getProductCategories(component);
+        helper.handlePageMessage(component,
+                                 //'Select a Product Category',
+                                 component.get('v.screenMessage'), //Added by MB - Bug 70808 - 2/20/19
+                                 helper.DEFAULT_TIP);
+        //Start of Code - MB - 07/30/18 - Bug 63360
+        $A.util.removeClass(_spinner, "slds-show");
+        $A.util.addClass(_spinner, "slds-hide");
+        //End of Code - MB - 07/30/18 - Bug 63360
+        console.log('isDesktop: ' + $A.get("$Browser.isDesktop"));
+        
+        var viewData = component.get( "v.viewData" );
+        var accountId = component.get( "v.accountId" );
+        var gridType = component.get( "v.gridType" );
+        var timeStamp = component.get( "v.timeStamp" );
+        var productCategoryName = component.get( "v.productCategoryName" );
+        var isShowMenuButton = component.get( "v.isShowMenuButton" );
+        var selectedCHKBX  = component.get( "v.selectedCHKBX" );
+        
+        var listOfData = viewData.listOfData;
+        console.log( 'listOfData --> '+ listOfData );        
+        /*
+        console.log( 'accountId --> '+accountId );
+        console.log( 'gridType --> '+gridType );
+        console.log( 'timeStamp --> '+timeStamp );
+        console.log( 'productCategoryName --> '+productCategoryName );
+        console.log( 'isShowMenuButton --> '+isShowMenuButton );
+        console.log( 'selectedCHKBX --> '+selectedCHKBX );
+        */
+    },
+    
+    onCategorySelection : function(component, event, helper){
+        var _prodCategoryId = component.get("v.viewData.productCategoryId"); 
+        var _prodCatName = helper.getSelectedProductCategoryName(component);
+        
+        //component.set("v.displaySpinner", true); //Added by MB - Us 80853 - 10/3/19 - Commented - Bug 81973 - 10/23/19
+        component.set("v.productCategoryName", _prodCatName);
+        
+        var _viewData = component.get("v.viewData");
+        console.log('### Grid_View - onCategorySelection - numberOfRecords: ' + _viewData.numberOfRecords);
+        
+        _viewData.listOfData = [];
+        _viewData.listOfPrimaryFilters = [];
+        _viewData.isMobile = ($A.get("$Browser.formFactor") == 'PHONE');
+        console.log('### Grid_View - onCategorySelection - isMobile: ' + _viewData.isMobile);
+        if(_prodCategoryId && _prodCategoryId != null && _prodCategoryId != ''){ 
+            if(!_viewData.isMobile && (_viewData.globalSearchText === undefined || _viewData.globalSearchText === '')){//Added condition globalSearchText - MB - Bug 70808 - 2/20/19
+                component.set('v.disableSearchBox', true); //Added by MB - Bug 70808 - 2/21/19
+            }
+            helper.handlePageMessage(component,'', helper.DEFAULT_TIP);
+            helper.getFieldsAndFilters(component, _prodCategoryId, _viewData.sObjectName); 
+            /*Start of Code - MB - US 80853 - 10/3/19 - Commented by MB - Bug 81973 - 10/16/19
+            setTimeout(function(){
+                helper.getFieldsAndFilters(component, _prodCategoryId, _viewData.sObjectName);
+            },0);
+            //End of Code - MB - US 80853 - 10/3/19*/
+        }else if(_prodCategoryId && _prodCategoryId != null && _prodCategoryId != '' && _viewData.globalSearchText &&
+                 _viewData.globalSearchText !== undefined && _viewData.globalSearchText !== ''){ //Added by MB - Bug 70808 - 2/20/19
+            //helper.fetchDataForAllCategories(component, event, helper);
+        }else{
+            helper.handlePageMessage(component,
+                                     //'Select a Product Category',
+                                     component.get('v.screenMessage'), //Added by MB - Bug 70808 - 2/20/19
+                                     helper.DEFAULT_TIP);
+            helper.clearData(component);
+        }        
+        
+        //helper.checkMPVisablity( component,_viewData.productCategoryId );        
+        // ADDED BY MUDIT - MOBILE PRICING
+        helper.getMPVisablity( component,_viewData.productCategoryId,component.get("v.accountId") );        
+        // ADDED BY MUDIT - MOBILE PRICING
+        //MOBILE PRICING ROW COLORS - ADDED BY MUDIT - 26-02-2020
+        helper.getRowColorCodes( component );
+        //MOBILE PRICING ROW COLORS - ADDED BY MUDIT - 26-02-2020
+        component.set("v.viewData", _viewData);
+    },
+    
+    onPrimaryFilterChange : function(component, event, helper){
+        //Start of Code - MB - Bug 71461 - 3/11/19
+        var _viewData = component.get("v.viewData");
+        if(_viewData !== undefined){
+            _viewData.searchKeyword = '';
+            _viewData.activeFilterCount = '';
+            //component.set('v.count', 0);
+        }
+        component.set("v.viewData", _viewData);
+        //End of Code - MB - Bug 71461 - 3/11/19
+        helper.checkFiltersAndGetData(component);
+    },
+    
+    doSearch : function(component, event, helper){
+        var _viewData = component.get("v.viewData");
+        console.log('### Grid_View - doSearch - numberOfRecords: ' + _viewData.numberOfRecords);
+        //if(_viewData.searchKeyword && _viewData.searchKeyword.length > 2){
+        if(_viewData.globalSearchText && _viewData.globalSearchText.length > 2){ // Added by MB - Bug 70808 - 2/22/19
+            helper.getViewData(component);
+        }else {
+            _viewData.listOfData = [];
+            helper.handlePageMessage(component, 'Please enter 3 or more characters', 'Try something more specific.');
+            component.set("v.viewData", _viewData);
+        }
+    },
+    
+    onFilterKeywordChange : function(component, event, helper){
+        var dataTable = component.find("dataTable");
+        if(dataTable !== undefined){
+            component.find("dataTable").updateView();
+        }
+    },
+    //Start of Code MB - Bug 70808 - 2/20/19
+    onGlobalSearchTextChange : function(component, event, helper){
+        var _viewData = component.get("v.viewData");
+        console.log('keyCode: ' + event.keyCode);
+        console.log('_viewData.globalSearchText: ' + _viewData.globalSearchText);
+        console.log('gridType: ' + component.get('v.gridType'));
+        
+        if((event.keyCode === 13 ) && _viewData.globalSearchText && _viewData.globalSearchText.length > 2){
+            component.set('v.displaySpinner', true);
+            helper.fetchDataForAllCategories(component, event, helper);
+        }else if(_viewData.globalSearchText || event.keyCode === 13 && (_viewData.globalSearchText === undefined || _viewData.globalSearchText && 
+                                                                        (_viewData.globalSearchText.length === 0 || (_viewData.globalSearchText.length > 0 && _viewData.globalSearchText.length < 3)))){
+            _viewData.cplIds = [];
+            _viewData.listOfData = [];
+            _viewData.listOfPrimaryFilters = [];
+            _viewData.productCategoryId = '';
+            _viewData.productCategory = '';
+            helper.handlePageMessage(component, 'Please enter 3 or more characters', 'Try something more specific. Press Enter key after finished typing.');
+            component.set("v.viewData", _viewData);
+        }else if(_viewData.globalSearchText !== undefined && _viewData.globalSearchText === ''){
+            _viewData.cplIds = [];
+            _viewData.listOfData = [];
+            _viewData.listOfPrimaryFilters = [];
+            _viewData.globalSearchText = '';
+            _viewData.productCategoryId = '';
+            _viewData.productCategory = '';
+            component.set('v.multipleProductCategories', false);
+            component.set('v.disableSearchBox', false);
+            component.set('v.count', 0);
+            helper.getProductCategories(component);
+            helper.handlePageMessage(component,
+                                     component.get('v.screenMessage'),
+                                     helper.DEFAULT_TIP);
+        }
+        component.set("v.viewData", _viewData);
+    },
+    
+    doReset : function(component, event, helper){
+        var _viewData = component.get("v.viewData");
+        if(_viewData !== undefined){
+            if(_viewData.cplIdList !== undefined){_viewData.cplIdList = [];}
+            _viewData.listOfData = [];
+            _viewData.listOfPrimaryFilters = [];
+            _viewData.globalSearchText = '';
+            _viewData.searchKeyword = '';
+            _viewData.productCategoryId = '';
+            _viewData.productCategory = '';
+            _viewData.zonesBuyingGroupMap = new Object(); //Added by MB - Bug 72382 - 4/2/19
+            _viewData.productCategoryZonesMap = []; //Added by MB - Bug 71631 - 3/21/19
+            //_viewData.productCategoryIdMap = '';
+            _viewData.activeFilterCount = '';
+            component.set("v.viewData", _viewData);
+        }
+        component.set('v.multipleProductCategories', false);
+        component.set('v.count', 0);
+        component.set('v.disableFilterBtn',true);
+        component.set('v.disableSearchBox', false);
+        helper.getProductCategories(component);
+        helper.handlePageMessage(component,
+                                 component.get('v.screenMessage'),
+                                 helper.DEFAULT_TIP);
+        
+    },
+    
+    doMobileSearch: function(component, event, helper){
+        var _viewData = component.get("v.viewData");
+        console.log('### Grid_View - doSearch - numberOfRecords: ' + _viewData.numberOfRecords);
+        if(_viewData.globalSearchText && _viewData.globalSearchText.length > 2){
+            helper.fetchDataForAllCategories(component, event, helper);
+        }else {
+            _viewData.listOfData = [];
+            helper.handlePageMessage(component, 'Please enter 3 or more characters', 'Try something more specific.');
+            component.set("v.viewData", _viewData);
+        }
+    },
+    //End of Code MB - Bug 70808 - 2/20/19
+    checkFilterLength : function(component, event, helper){
+        var searchBox = component.find("searchDesktop");
+        var searchVal = searchBox.get("v.value");
+        var validityVal = (searchVal == null || searchVal.length == 0 || searchVal.length > 2) ? {valid:true} : {valid:false, badInput :true};
+        searchBox.focus();
+        searchBox.set("v.validity",validityVal);
+        searchBox.showHelpMessageIfInvalid();
+        searchBox = component.find("searchDesktop");
+        console.log(validityVal);
+        console.log(searchBox.get("v.validity").valid);
+    },
+    
+    doSecondaryFilterDisplay: function(component, event, helper){
+        var modalBody;
+        $A.createComponent("c:Grid_SecondaryFilters", {
+            "viewData" : component.getReference("v.viewData")
+        },function(content, status) {
+            if (status === "SUCCESS") {
+                modalBody = content;
+                var _gridModalPromise = component.find('secondaryFilterOverlay').showCustomModal({
+                    header: "Search and Filter",
+                    body: modalBody,
+                    showCloseButton: true,
+                    cssClass: "secondary-filter-modal"
+                });
+                component.set("v.gridModalPromise", _gridModalPromise);
+            }
+        });
+    },
+    handleDataUpdateEvent: function(component, event, helper){
+        component.set("v.timeStamp", Date.now());
+        console.log('### inside handleDataUpdateEvent');
+    },
+    handleModalEvent: function(component, event, helper){
+        //Start of Comment -  MB - US 80853 - 10/2/19
+        /*if(component.get('v.gridModalPromise') !== undefined){
+            component.get('v.gridModalPromise').then(
+                function (modal) {
+                    modal.close();
+                }
+            );
+        }*/
+        //Start of Comment -  MB - US 80853 - 10/2/19
+        component.set('v.displayFilters', false); //Added by MB - US 80853 - 10/2/19
+        console.log('### closing the secondary filter window');
+        //component.set("v.timeStamp", Date.now());        
+    },
+    backToRecord: function(component, event, helper){
+        
+        var gridType = component.get("v.gridType");
+        console.log('### gridType: ' + gridType);
+        
+        if (gridType == 'Merchandizing_Vehicle_Price_List') {
+            window.history.back();
+        }
+        else {
+            //Force the navigation back to the account record instead of the previous window.history
+            var _accountId = component.get('v.accountId');
+            var navEvt = $A.get("e.force:navigateToSObject");
+            navEvt.setParams({
+                "recordId": _accountId
+            });
+            navEvt.fire();
+        }
+        
+    },
+    openAccountReport: function(component, event, helper){
+        var _accountId = component.get('v.accountId');
+        var _prodCatName = encodeURI(helper.getSelectedProductCategoryName(component));
+        var _reportUrl = '/c/ProductPriceRecordsByAccount.app?accountId='+_accountId+'&category='+_prodCatName;
+        var urlEvent = $A.get("e.force:navigateToURL");
+        urlEvent.setParams({
+            "url": _reportUrl
+        });
+        urlEvent.fire();
+    },
+    
+    openAccountReportComponent : function(component, event, helper) {
+        
+        var _accountId = component.get('v.accountId');
+        var _prodCatName = helper.getSelectedProductCategoryName(component);//encodeURI(helper.getSelectedProductCategoryName(component));
+        console.log('### _accountId: ' + _accountId);
+        console.log('### _prodCatName: ' + _prodCatName);
+        //Start of Code - MB - Bug 72380 - 4/3/19 
+        if(_prodCatName === undefined || _prodCatName === null || _prodCatName === ''){
+            var prodCategories = component.get('v.productCategories');
+            console.log('prodCategories: ' + JSON.stringify(prodCategories));
+            if(prodCategories !== undefined && prodCategories.length>0){
+                _prodCatName = prodCategories[0].Product_Category__c;
+            }
+        }
+        //End of Code - MB - Bug 72380 - 4/3/19 
+        console.log('### before opening chart');
+        helper.openLEModal(component,helper,"c:Product_Price_Records_by_Account",{
+            accountId : _accountId,
+            category : _prodCatName,
+            timeStamp : Date.now(),
+            productCategoriesFrmParent:component.get("v.productCategories")//Added By Mudit - BUG - 72380
+        });
+    },
+    
+    //Start of Code -  MB - US 80853 - 10/2/19
+    displayFilterOptions: function(component, event, helper){
+        component.set('v.displayFilters', true);
+    },
+    //End of Code -  MB - US 80853 - 10/2/19
+    //
+    showAddProduct: function(component, event, helper){
+        component.set('v.showAddProduct', true); 
+        console.log( 'productCategoryName --> '+component.get("v.productCategoryName") );
+        /* Added By PM on 28th Jan, 2020 */
+        /*
+        var viewData = component.get( "v.viewData" );                                     
+        helper.openLEModal(component,helper,"c:MP_NewProductTable",{
+            ProductCategory : viewData.productCategoryId,
+            listOfData : viewData.listOfData,           
+            showAddProduct : component.get( "v.showAddProduct" ),
+            accountId : component.get('v.accountId'),
+            productCategoryName : component.get("v.productCategoryName"),
+          	viewAllData : viewData            
+        });
+        
+        //
+        /* Added By PM on 28th Jan, 2020 */
+    },
+    closeAddProduct : function(component, event, helper){
+        console.log( 'closeAddProduct --> ' );
+        
+        component.set('v.showAddProduct', false);
+        helper.getFieldsAndFilters( component, component.get("v.viewData.productCategoryId"), component.get("v.viewData.sObjectName") );
+        var viewData = component.get( "v.viewData" );
+        var accountId = component.get( "v.accountId" );
+        var gridType = component.get( "v.gridType" );
+        var timeStamp = component.get( "v.timeStamp" );
+        var productCategoryName = component.get( "v.productCategoryName" );
+        var isShowMenuButton = component.get( "v.isShowMenuButton" );
+        var selectedCHKBX  = component.get( "v.selectedCHKBX" );
+        
+        console.log( 'viewData --> '+ viewData);
+        console.log( 'accountId --> '+accountId );
+        console.log( 'gridType --> '+gridType );
+        console.log( 'timeStamp --> '+timeStamp );
+        console.log( 'productCategoryName --> '+productCategoryName );
+        console.log( 'isShowMenuButton --> '+isShowMenuButton );
+        console.log( 'selectedCHKBX --> '+selectedCHKBX );
+        //window.history.back();       
+        /*
+        component.set('v.showAddProduct', false);
+        /*
+        var _prodCategoryId = component.get("v.viewData.productCategoryId"); 
+        var _viewData = component.get("v.viewData");
+        console.log('_viewData --> '+_viewData );
+        console.log('Product Name --> '+component.get( "v.productCategoryName" ) ); 
+        
+        
+        */
+        //console.log( 'showAddProduct --> '+component.get('v.showAddProduct') );
+        
+        //helper.getFieldsAndFilters(component, _prodCategoryId, _viewData.sObjectName); 
+    },
+    showGroupPricing : function(component, event, helper){
+        component.set('v.showSelectGPScreen', true);
+    },
+    onclickCancelGroupPrice : function(component, event, helper){
+        component.set('v.isShowMenuButton', true);
+        component.set('v.ECPClick', false);
+        component.set('v.CLTPClick', false);
+        component.set('v.RCPClick', false);
+    },
+    onclickSetGroupPrice : function(component, event, helper){
+        component.set('v.openGroupPriceModal', true);
+    },
+    onclickTimePrice : function(component, event, helper){
+        component.set('v.openTimePriceModal', true);
+    },
+    onclickDelete : function(component, event, helper){
+        component.set('v.openDeleteConfirmation', true);
+    },
+    handleComponentEvent : function(component, event, helper){
+        //alert('HERE');
+        //alert( component.get("v.viewData.productCategoryId") );
+        //alert( component.get("v.viewData.sObjectName") );
+        var _parm1 = event.getParam("componentName");
+        var _parm2 = event.getParam("isChanges");
+        
+        if( _parm1 == 'MP_EditGroupPriceComponent' ){
+            component.set("v.ECPClick",false);
+            component.set("v.isShowMenuButton",true);
+            
+            component.set("v.CLTPClick",false);
+            component.set("v.openTimePriceModal",false);
+        }
+        
+        //if( _parm1 == 'MP_CreateLimitedTimePrice' && _parm2 ){
+        if( _parm2 ){
+            helper.getFieldsAndFilters( component, component.get("v.viewData.productCategoryId"), component.get("v.viewData.sObjectName") );    
+        }
+    },
+    // Start added by NN for Email Dealer CPL
+    showModal : function(component, event, helper) {
+        var _viewData = component.get("v.viewData");
+        $A.createComponent(
+            "c:CPL_EmailDealer",
+            {
+                accountId : component.get("v.accountId"),
+                //productId : component.get("v.viewData.productCategoryId"),
+                //gridType  : component.get('v.gridType')
+                viewData : component.get('v.viewData')
+            },
+            function(newCard, status, errorMessage){
+                if (status === "SUCCESS") {
+                    var body = component.get("v.body");
+                    body.push(newCard);
+                    component.set("v.body", body);
+                }
+                else if (status === "INCOMPLETE") {
+                    console.log("No response from server or client is offline.")
+                }
+                    else if (status === "ERROR") {
+                        console.log("Error: " + errorMessage);
+                    }
+            }
+        );
+    },
+    // End - NN
+    handleSubmitForApproval : function(component, event, helper){
+        helper.handleSubmitForApproval(component, event, helper);
+    },
+    addProductToPriceList : function( component,event,helper ){
+    	console.log( 'In addProductToPriceList --> ' );
+        var mpSelect = component.find("mpSelect");
+        mpSelect.closeAddProduct();
+        component.set("v.showAddProduct", false);        
+        helper.getFieldsAndFilters( component, component.get("v.viewData.productCategoryId"), component.get("v.viewData.sObjectName") );
+    },
+    handleOpenModal : function( component,event,helper ){
+        //alert('HERE');
+        var _compName = event.getParam("componentName");
+        var _parm = event.getParam("params");        
+        if( _compName == 'MP_EditPriceComponent' ){
+            if( _parm[0].showMPEditPrice ){
+                //alert( _parm[0].selectedRecordId );
+                component.set("v.selectedRecordId",_parm[0].selectedRecordId);
+                //alert( component.get("v.selectedRecordId") );
+                component.set("v.PriceGridUniqueKey",_parm[0].PriceGridUniqueKey);
+                component.set("v.subCategory",_parm[0].subCategory);
+                component.set("v.isPriceGridRecord",_parm[0].isPriceGridRecord);
+                component.set("v.showSingleMPEditPrice",_parm[0].showMPEditPrice);
+            }
+        }
+        if( _compName == 'MP_CreateLimitedTimePrice' ){
+            if( _parm[0].showMPCreateLimitedTimePrice ){
+                component.set("v.selectedRecordId",_parm[0].selectedRecordId);                
+                component.set("v.PriceGridUniqueKey",_parm[0].PriceGridUniqueKey);
+                component.set("v.subCategory",_parm[0].subCategory);
+                component.set("v.isPriceGridRecord",_parm[0].isPriceGridRecord);
+                component.set("v.rowEndDate",_parm[0].rowEndDate);
+                component.set("v.showSingleMPCreateLimitedTimePrice",_parm[0].showMPCreateLimitedTimePrice);
+            }
+        }
+        
+    },
+})
+
+HELPER
+({
+	checkFiltersAndGetData : function(component) {
+		var _viewData = component.get("v.viewData");
+		console.log('### Grid_View (helper) - checkFiltersAndGetData - numberOfRecords: ' + _viewData.numberOfRecords);
+        _viewData.hasUnselectedPrimaryFilters = false;
+		_viewData.listOfData = [];
+		var _unselectedFieldNames = [];
+        var options = [];
+        var zoneSelected = '';
+        console.log('### Grid_View (helper) - checkFiltersAndGetData - primaryFilters: ' + JSON.stringify(_viewData.listOfPrimaryFilters));
+		for(var i=0; i < _viewData.listOfPrimaryFilters.length; i++){
+            /* Start of Code - MB - Bug 69642 - 1/24/19 */
+            if((_viewData.listOfPrimaryFilters[i].label.indexOf('Price Zone') > -1 || _viewData.listOfPrimaryFilters[i].label.indexOf('District') > -1) && 
+               (_viewData.grid === 'Price Grid' || _viewData.grid === 'Buying Group Grid') && 
+               (_viewData.listOfPrimaryFilters[i].stringValue === '' || _viewData.listOfPrimaryFilters[i].stringValue === undefined)){
+                var pricezoneValues = _viewData.listOfPrimaryFilters[i].listOfFilterOptions;
+                console.log('List of prizezoneValues.length: ' + JSON.stringify(pricezoneValues));
+                if(pricezoneValues !== undefined && pricezoneValues.length > 0){
+                    _viewData.listOfPrimaryFilters[i].stringValue = pricezoneValues[0].value;
+                }
+            }
+            /* End of Code - MB - Bug 69642 - 1/24/19 */
+            //Start of Code - MB - Bug 72382 - 4/2/19
+            if(_viewData.listOfPrimaryFilters[i].stringValue !== '' && _viewData.listOfPrimaryFilters[i].stringValue !== undefined && 
+               _viewData.grid === 'Buying Group Grid' && 
+               (_viewData.listOfPrimaryFilters[i].label === 'Price Zone' || _viewData.listOfPrimaryFilters[i].label === 'District')){
+                zoneSelected = _viewData.listOfPrimaryFilters[i].stringValue;
+            }
+            console.log('zoneSelected: ' + JSON.stringify(zoneSelected));
+            var zonesBuyingGroupStr = JSON.stringify(_viewData.zonesBuyingGroupMap);
+            if(_viewData.listOfPrimaryFilters[i].label === 'Buying Group' && _viewData.grid === 'Buying Group Grid' && 
+               zoneSelected != '' && zonesBuyingGroupStr !== undefined && zonesBuyingGroupStr !== '{}' && zonesBuyingGroupStr !== ''){
+                options = [];
+                console.log('_viewData.zonesBuyingGroupMap: ' + JSON.stringify(_viewData.zonesBuyingGroupMap));
+                var zonesBuyingGroupMap = _viewData.zonesBuyingGroupMap;
+                for(var zone in zonesBuyingGroupMap){
+                    if(zone === zoneSelected){
+                        var buyingGroups = zonesBuyingGroupMap[zone];
+                        for(var key in buyingGroups){
+                            for(var idx in buyingGroups[key]){
+                                options.push({value : idx, label : buyingGroups[key][idx]});
+                            }
+                        }
+                        console.log('buyingGroups: ' + JSON.stringify(options));
+                    }
+                }
+                if(options.length>0){
+                    _viewData.listOfPrimaryFilters[i].listOfFilterOptions = options;
+                }
+            }
+            //End of Code - MB - Bug 72382 - 4/2/19
+            //Start of Code - MB - Bug 72783 - 4/12/19
+            if(_viewData.listOfPrimaryFilters[i].label === 'Buying Group' && _viewData.grid === 'Buying Group Grid' &&
+              (_viewData.listOfPrimaryFilters[i].stringValue === '' || _viewData.listOfPrimaryFilters[i].stringValue === undefined)){
+                var buyingGroupValues = _viewData.listOfPrimaryFilters[i].listOfFilterOptions;
+                console.log('List of buyingGroupValues: ' + JSON.stringify(buyingGroupValues));
+                if(buyingGroupValues !== undefined && buyingGroupValues.length > 0){
+                    _viewData.listOfPrimaryFilters[i].stringValue = buyingGroupValues[0].value;
+                }
+            }//End of Code - MB - Bug 72783 - 4/12/19
+			if(_viewData.listOfPrimaryFilters[i].hasFilterOptions
+				&& (_viewData.listOfPrimaryFilters[i].stringValue == null
+					|| _viewData.listOfPrimaryFilters[i].stringValue == '')){
+
+				_unselectedFieldNames.push(_viewData.listOfPrimaryFilters[i].label);
+			}
+			//checking for warehouse value
+			if(_viewData.listOfPrimaryFilters[i].label.indexOf('Warehouse') > -1){
+				_viewData.warehouseValue = _viewData.listOfPrimaryFilters[i].stringValue;
+			}
+		}
+		_viewData.hasUnselectedPrimaryFilters = _unselectedFieldNames.length > 0;
+		var _msg = 'Select a ';
+		for(var i=0; i<_unselectedFieldNames.length; i++){
+			_msg += _unselectedFieldNames[i]
+			if(i < _unselectedFieldNames.length - 2){
+				_msg += ', ';
+			}else if(i == _unselectedFieldNames.length - 2){
+				_msg += ' and ';
+			}
+		}
+        console.log('### Grid_View (helper) - checkFiltersAndGetData -  _unselectedFieldNames.length: ' + _unselectedFieldNames.length);
+        if(_unselectedFieldNames.length > 0){
+			this.handlePageMessage(component, _msg, this.DEFAULT_TIP);
+        	this.clearData(component);
+        }
+		else {
+			this.handlePageMessage(component, '', null);
+		}
+		component.set("v.viewData", _viewData);
+        
+		if(_viewData.hasUnselectedPrimaryFilters == false){
+			if(_viewData.isMobile == false || (_viewData.isMobile == true && _viewData.globalSearchText && _viewData.globalSearchText !== undefined && _viewData.globalSearchText !== '')){
+				this.getViewData(component);
+			}else if(_viewData.globalSearchText === undefined || _viewData.globalSearchText === ''){//Added condition for Global Search Text - MB - Bug 70808 - 2/22/19
+				this.handlePageMessage(component, 'Please enter 3 or more characters', 'Try something more specific.');
+				component.set("v.viewData", _viewData);
+			}
+		}
+      	  
+		component.set("v.displaySpinner", false);
+	},
+    
+    //Start of Code MB - Bug 70808 - 2/20/19
+    fetchDataForAllCategories : function(component, event, helper){
+        var _viewData = component.get("v.viewData");
+        var start = performance.now();
+        var elapsed = performance.now() - start;
+		console.log('### fetchCPLDataUsingSOSL - elapsed time: ' + elapsed);
+        console.log('### fetchCPLDataUsingSOSL - prodCategory: ' + component.get("v.gridType"));
+        console.log('### fetchCPLDataUsingSOSL - gridType: ' + _viewData.gridType);
+        console.log('### fetchCPLDataUsingSOSL - accountId: ' + component.get('v.accountId'));
+        this.doCallout(component, "c.fetchCPLDataUsingSOSL", {
+            "viewDataJSONString": JSON.stringify(_viewData),
+            "accountId" : component.get('v.accountId'),
+            "productId" : component.get('v.productId'),
+            "grid" : component.get('v.gridType')
+        }, function(response) {
+		elapsed = performance.now() - start;
+		console.log('### fetchCPLDataUsingSOSL - elapsed time: ' + elapsed);
+            var _status = response.getState();
+            if (_status === 'SUCCESS') {
+                var _resp = response.getReturnValue();
+                var _viewData = component.get("v.viewData");
+                console.log('### fetchCPLDataUsingSOSL - resp: ' + JSON.stringify(_resp.productCategoryIdMap));
+                if (_resp.productCategoryIdMap === undefined || _resp.productCategoryIdMap === null || 
+                    _resp.productCategoryIdMap.length === 0) {
+                    component.set('v.productCategories', _resp.productCategories);
+                    this.handlePageMessage(component, this.NO_RESULTS, this.NO_RESULTS_TIP);
+                } else {
+                    console.log('filtered Product Categories: ' + JSON.stringify(_resp.productCategories));
+                    _viewData.productCategoryIdMap = _resp.productCategoryIdMap;
+                    _viewData.hasMessage = false;
+                    console.log('globalSearchText: ' + _viewData.globalSearchText);
+                    _viewData.searchKeyword = _viewData.globalSearchText;
+                    _viewData.zonesBuyingGroupMap = _resp.zonesBuyingGroupMap; //Added by MB - Bug 72382 - 4/2/19
+                    if(_resp.productCategories && _resp.productCategories.length > 0){
+                        component.set('v.disableSearchBox', true);
+                        component.set('v.productCategories', _resp.productCategories);
+                        _viewData.productCategoryZonesMap = _resp.productCategoryZonesMap; //Added by MB - Bug 71631 - 3/20/19
+                        if(_resp.productCategoryId && _resp.productCategoryId !== undefined){
+                            console.log('productCategoryId: ' + JSON.stringify(_resp.productCategoryId));
+                            _viewData.productCategoryId = _resp.productCategoryId;
+                            component.set('v.multipleProductCategories', false);
+                            component.set('v.count', 1);
+                        }else{
+                            component.set('v.multipleProductCategories', true);
+                            component.set('v.count', _resp.productCategories.length);
+                            helper.handlePageMessage(component, 'Please select a Product Category', 'Result contains multiple Product Categories');
+                        }
+                    }
+                    component.set("v.viewData", _viewData);
+                    if(_resp.productCategoryId && _resp.productCategoryId !== undefined){
+                        // Start of code - MB - Bug 71461 - Set Product Category Name for default Product Category - 3/11/19
+                        var _prodCatName = helper.getSelectedProductCategoryName(component); 
+        				component.set("v.productCategoryName", _prodCatName);
+                        // Start of code - MB - Bug 71461 - 3/11/19
+                        this.getFieldsAndFilters( component, component.get("v.viewData.productCategoryId"), component.get("v.viewData.sObjectName") );
+                    }
+                }
+                component.set('v.displaySpinner', false);
+            } else {
+                this.handlePageMessage(component, this.NO_RESULTS, this.NO_RESULTS_TIP);
+                component.set('v.displaySpinner', false);
+                component.set("v.viewData", _viewData);
+            }
+            
+            /*component.set("v.timeStamp", Date.now());
+            
+            //Hide the spinner after completing the data fetch
+            var spinner = component.find("chartSpinner");
+            if (spinner != undefined)
+                $A.util.toggleClass(spinner, "slds-hide");
+            
+            elapsed = performance.now() - start;
+            console.log('### getViewData - elapsed time: ' + elapsed);  */              
+            
+        });
+    },
+    //End of Code MB - Bug 70808 - 2/20/19
+    //
+})
+
+CSS
+
+.THIS  {
+ 
+}
+.THIS .bold {
+font-weight:bold ;
+}
+.THIS .boldred {
+	font-weight:bold ;
+    color:red;
+}
+.THIS .slds-icon-custom-custom11{
+    background-color:#fcb95b;
+}
+.THIS.scrollerSize {
+    height: 79%;
+    width: 100%;
+    overflow-x: hidden;
+}
+.THIS.scrollerSize2Filters {
+    height: 65%;
+    width: 100%;
+    overflow-x: hidden;
+}
+.THIS.scrollerSize3Filters {
+    height: 55%;
+    width: 100%;
+    overflow-x: hidden;
+}
+.THIS .innerDivWrapper {
+    min-height: 101%;
+    padding-bottom: 10px;
+}
+
+/* ----------- iPad 3, 4 and Pro 9.7" ----------- */
+/* Portrait and Landscape */
+@media only screen 
+    and (min-device-width: 768px) 
+    and (max-device-width: 1024px) 
+    and (-webkit-min-device-pixel-ratio: 2) {
+    .THIS .headerTitle{
+        font-size: 1.5rem;
+        font-weight: 300;
+    }
+    .THIS .headerSubTitle{
+        font-size: .875rem;
+        font-weight: 400;
+        margin-top:7px;
+    }
+}
+
+/* ----------- iPad 3, 4 and Pro 9.7" ----------- */
+/* Portrait*/
+@media only screen 
+    and (min-device-width: 834px)
+    and (orientation: portrait){
+    .THIS .setModalHeight{
+        height: 850px;
+        justify-content: center;
+    	display:flex;
+    }
+}
+/* ----------- iPad 3, 4 and Pro 9.7" ----------- */
+/* Landscape*/
+@media only screen 
+    and (max-device-width: 1112px)
+    and (orientation: landscape){
+    .THIS .setModalHeight{
+        height: 680px;
+        justify-content: center;
+    	display:flex;
+    }
+}
+
+/* ----------- iPhone 5, 5S, 5C and 5SE ----------- */
+/* Portrait and Landscape */
+@media only screen 
+    and (min-device-width: 320px) 
+    and (max-device-width: 568px)
+    and (-webkit-min-device-pixel-ratio: 2) {
+    .THIS .headerTitle{
+        font-size: 1.25rem;
+        margin: 0 0 .5rem 0;
+        font-weight:300;
+    }
+    .THIS .headerSubTitle{
+        font-size: .875rem;
+        font-weight: 400;
+    }
+    .THIS .slds-page-header{
+        border:none;
+        border-bottom:1px solid rgb(221, 219, 218);
+    }
+}
+/* ----------- iPhone 6, 6S, 7 and 8 ----------- */
+/* Portrait and Landscape  max-device-width: 667px*/
+@media only screen 
+    and (min-device-width: 375px) 
+    and (max-device-width: 812px) 
+    and (-webkit-min-device-pixel-ratio: 2) { 
+    .THIS .headerTitle{
+        font-size: 1.25rem;
+        margin: 0 0 .5rem 0;
+        font-weight:300;
+    }
+    .THIS .headerSubTitle{
+        font-size: .875rem;
+        font-weight: 400;
+    }
+    .THIS .slds-page-header{
+        border:none;
+        border-bottom:1px solid rgb(221, 219, 218);
+    }
+    .THIS .refreshIconSize{
+        width:30px;
+        height:30px;
+        fill:darkred;
+    }
+    .THIS .slds-button_icon-border{
+        border: none;
+        border-color:none;
+        padding-top:4px;
+    }
+}
+.THIS .indicator-item{
+    margin-top: 5px;
+    font-weight: normal;
+}
+.THIS .indicator-item .icon{
+    border: 1px solid #DDD;
+    border-radius: 5px;
+    background-color: #FFF;
+    text-align: center;
+    margin-right: 5px;
+    font-size: 14px;
+    width: 22px;
+    color: #000;
+    display: inline-block;
+}
+
+.THIS .indicator-body{
+    display: none;
+}
+.THIS .indicator-icon:hover+.indicator-body{
+    display: block;
+}
+
+.THIS .white {
+    color: #FFF;
+}
+
+DESIGN
+<design:component >
+    <design:attribute name="gridType" label="Grid Type Name" description="Developer Name of the Grid type being used" datasource="apex://Grid_GridTypePicklist"/>
+</design:component>
+
+SVG
+
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="120px" height="120px" viewBox="0 0 120 120" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+		<path d="M120,108 C120,114.6 114.6,120 108,120 L12,120 C5.4,120 0,114.6 0,108 L0,12 C0,5.4 5.4,0 12,0 L108,0 C114.6,0 120,5.4 120,12 L120,108 L120,108 Z" id="Shape" fill="#2A739E"/>
+		<path d="M77.7383308,20 L61.1640113,20 L44.7300055,63.2000173 L56.0543288,63.2000173 L40,99.623291 L72.7458388,54.5871812 L60.907727,54.5871812 L77.7383308,20 Z" id="Path-1" fill="#FFFFFF"/>
+	</g>
+</svg>
