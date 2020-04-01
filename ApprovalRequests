@@ -1,0 +1,1493 @@
+COMPONENT
+<aura:component access="global" implements="force:appHostable,flexipage:availableForAllPageTypes" controller="ApprovalRequest_CC">
+    <!-- Attributes -->
+    <aura:attribute name="WorkitemList" type="Object"/>
+    <!--aura:attribute name="dataList" type="Object"/-->
+    <aura:attribute name="WorkitemColumns" type="List"/>
+    <aura:attribute name="device" type="String" default="{!$Browser.formFactor}"/>
+    <aura:attribute name="statusMessage" type="String" default="No Records to display"/>
+    <aura:attribute name="dataMap" type="Object" />
+    <aura:attribute name="filterOptions" type="List" />   
+    <aura:attribute name="selectedfilterOptions" type="List"  />        
+    <aura:attribute name="tabLabel" type="String" />
+    <aura:attribute name="optionMap" type="Map" />
+    <aura:attribute name="status2Recs" type="Map" />
+    <aura:attribute name="statusList" type="List" />
+    <aura:attribute name="selectedStatusList" type="List" />
+    <aura:attribute name="cplIdWIIdMap" type="Object" />
+    <aura:attribute name="sortOrder" type="String" default=""/>
+    <aura:attribute name="sortOrderField" type="String" default="accName"/>
+    <aura:attribute name="arrowDirection" type="string" default="arrowup" description="Use for change arrow sign direction on header based on click"/>
+    <aura:attribute name="selectedTab" type="string" default="objectType" description="Use for show/hide arraow sign on header based on conditions"/>
+    <aura:attribute name="selectedTabSubBy" type="string" default="submittedBy" description="Use for show/hide arraow sign on header based on conditions"/>
+    <aura:attribute name="selectedTabSubDate" type="string" default="submittedDate" description="Use for show/hide arraow sign on header based on conditions"/>
+    <aura:attribute name="isAsc" type="boolean" default="true"/>
+    
+    <!-- Handers  -->
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}"/>
+    <aura:handler name="onchange" event="c:genricMultiSelectEvt" action="{!c.handleSelectChange}"/>
+    
+    <div style="position:static; transform:none;height:100%">
+        <!--div class="slds-page-header-object-home slds-page-header slds-shrink-none panel-header" role="banner"
+             style="position:fixed; width:98.75%;height:8%;z-index:10"-->
+        <div class="slds-page-header">
+            <div class="slds-page-header__row">
+                <div class="slds-page-header__col-title">
+                    <div class="slds-grid">
+                        <div class="slds-media">
+                            <div class="slds-media__figure">
+                                <span class="uiImage">
+                                    <img alt="ApprovalRequest" src="{!$Resource.SLDSIcons + '/standard/approval_60.png'}" title="People" style="background:rgb(220, 216, 97); width:2rem; height:2rem"/>
+                                </span>
+                            </div>
+                            <div class="slds-media__body slds-text-color--weak uiOutputText" style="font-size:12px; font-family:'Salesforce Sans',Arial,sans-serif; text-overflow: ellipsis;">
+                                <nav role="navigation" aria-label="Breadcrumbs">
+                                    <ol class="slds-breadcrumb slds-list--horizontal">
+                                        <li class="slds-breadcrumb__item slds-line-height--reset">
+                                            <span class="uiOutputText" data-aura-class="uiOutputText">
+                                                Approval Requests
+                                            </span>
+                                        </li>
+                                    </ol>
+                                </nav>
+                                <h1 class="slds-page-header__title slds-text-color--default slds-p-right--x-small">
+                                    <span class="triggerLinkText selectedListView uiOutputText forceListViewPicker" data-aura-class="uiOutputText forceListViewPicker">
+                                        Items to Approve
+                                    </span>
+                                </h1>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Status Filter -->
+        <!-- PICKLIST START -->
+        <div>
+            <div class="slds-grid slds-wrap slds-gutters slds-p-vertical_medium slds-m-horizontal_xxx-small">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12 slds-large-size_4-of-12">
+                    <c:genericMultiSelectNew label="Approval Status" options="{!v.statusList}" selectedItems="{!v.selectedStatusList}" sorting="false"/>  
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12 slds-large-size_4-of-12">
+                    <c:genericMultiSelectNew label="Object Type" options="{!v.filterOptions}" selectedItems="{!v.selectedfilterOptions}" sorting="false"/>
+                </div>
+                <!--div class="{!($Browser.formFactor == 'DESKTOP' ? ' slds-p-top_xx-small' : '') + ' slds-col slds-float-left slds-size_4-of-12 '}">
+                    <label>&nbsp;</label><br/>
+                    <lightning:button label="Approve" onclick="{!c.handleApproval}" variant="destructive" aura:id='Approve'/>
+                    <lightning:button label="Reject" onclick="{!c.handleApproval}" variant="destructive" aura:id='Reject'/>
+                    
+                </div-->
+            </div>
+            <!-- PICKLIST END --> 
+        </div>
+        <div class="slds-p-left_medium slds-p-right_medium slds-scrollable" style="min-height:864px">
+            <div class="slds-show" aura-id="list-page">
+                <!--<ul class="slds-has-dividers__around-space">-->
+                <aura:renderIf isTrue="{!v.WorkitemList.length > 0}">
+                    <aura:if isTrue="{!v.device == 'PHONE'}">
+                        <ui:scrollerWrapper class="wrap-scroll">
+                            <div class="slds-has-dividers--around-space">
+                                <aura:iteration items="{!v.WorkitemList}" var="workitem" indexVar="wIIndex">
+                                    <div class="slds-item slds-m-right--xx-small" data-name="{!workitem.name}"
+                                         data-index="{!wIIndex}" data-cpl="{!workitem.CPL}" data-id="{!workitem.id}" data-objectType="{!workitem.objectType}"
+                                         onclick="{!c.openDetailPage}" style="width:100%">
+                                        <div class="slds-tile slds-tile--board">
+                                            <div class="slds-tile slds-media">
+                                                <div class="slds-media__body">
+                                                    <div class="slds-tile__detail slds-text-body--small">
+                                                        <dl class="slds-list--horizontal slds-wrap">
+                                                            <dt class="slds-item--label slds-text-color--weak slds-truncate"
+                                                                title="objectType"><b>Type:</b>
+                                                            </dt>
+                                                            <dd class="slds-item--detail slds-truncate">{!workitem.objectType}</dd>
+                                                            <dt class="slds-item--label slds-text-color--weak slds-truncate"
+                                                                title="objectType"><b>Account Name:</b>
+                                                            </dt>
+                                                            <dd class="slds-item--detail slds-truncate">{!workitem.accName}</dd>
+                                                            <dt class="slds-item--label slds-text-color--weak slds-truncate"
+                                                                title="objectType"><b>Account #:</b>
+                                                            </dt>
+                                                            <dd class="slds-item--detail slds-truncate">{!workitem.name}</dd>                                                            
+                                                            <dt class="slds-item--label slds-text-color--weak slds-truncate"
+                                                                title="submittedBy"><b>R365 Sales:</b>
+                                                            </dt>
+                                                            <dd class="slds-item--detail slds-truncate">{!workitem.r365Sales}</dd>
+                                                        </dl>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </aura:iteration>
+                            </div>
+                        </ui:scrollerWrapper>
+                        <aura:set attribute="else">  
+                            <ui:scrollerWrapper class="tableScrollPage">
+                                <div class="">
+                                    <table class="grid-table slds-table slds-table_bordered slds-scrollable">
+                                        <thead>
+                                            <tr class="slds-text-title--caps">
+                                                <th class="slds-is-sortable" scope="col">
+                                                    <div title="Type" class="slds-grid slds-grid_align-left slds-truncate slds-has-flexi-truncate" >
+                                                        <div style="cursor: pointer;" data-field="objectType" onclick="{!c.doSort}">
+                                                            Type &nbsp;
+                                                            <aura:if isTrue="{!v.sortOrderField == 'objectType'}">
+                                                                <lightning:buttonIcon value="objectType" iconName="{!v.sortOrder == 'asc' ? 'utility:arrowup' : 'utility:arrowdown'}"
+                                                                                      variant="bare" name="sort" />
+                                                            </aura:if>
+                                                        </div>
+                                                    </div>
+                                                </th>
+                                                <th class="slds-is-sortable" scope="col">
+                                                    <div title="Account Name" class="slds-grid slds-grid_align-left slds-truncate slds-has-flexi-truncate" >
+                                                        <div style="cursor: pointer;" data-field="accName" onclick="{!c.doSort}">
+                                                            Account Name &nbsp;
+                                                            <aura:if isTrue="{!v.sortOrderField == 'accName'}">
+                                                                <lightning:buttonIcon value="accName" iconName="{!v.sortOrder == 'asc' ? 'utility:arrowup' : 'utility:arrowdown'}"
+                                                                                      variant="bare" name="sort" />
+                                                            </aura:if>
+                                                        </div>
+                                                    </div>
+                                                </th>
+                                                <th class="slds-is-sortable" scope="col">
+                                                    <div title="Account #" class="slds-grid slds-grid_align-left slds-truncate slds-has-flexi-truncate" >
+                                                        <div style="cursor: pointer;" data-field="name" onclick="{!c.doSort}">
+                                                            Account # &nbsp;
+                                                            <aura:if isTrue="{!v.sortOrderField == 'name'}">
+                                                                <lightning:buttonIcon value="name" iconName="{!v.sortOrder == 'asc' ? 'utility:arrowup' : 'utility:arrowdown'}"
+                                                                                      variant="bare" name="sort" />
+                                                            </aura:if>
+                                                        </div>
+                                                    </div>
+                                                </th>
+                                                <th class="slds-is-sortable" scope="col">
+                                                    <div title="Customer Group" class="slds-grid slds-grid_align-left slds-truncate slds-has-flexi-truncate" >
+                                                        <div style="cursor: pointer;" data-field="customerGroup" onclick="{!c.doSort}">
+                                                            Customer Group &nbsp;
+                                                            <aura:if isTrue="{!v.sortOrderField == 'customerGroup'}">
+                                                                <lightning:buttonIcon value="customerGroup" iconName="{!v.sortOrder == 'asc' ? 'utility:arrowup' : 'utility:arrowdown'}"
+                                                                                      variant="bare" name="sort" />
+                                                            </aura:if>
+                                                        </div>
+                                                    </div>
+                                                </th>
+                                                <th class="slds-is-sortable" scope="col">
+                                                    <div title="City" class="slds-grid slds-grid_align-left slds-truncate slds-has-flexi-truncate" >
+                                                        <div style="cursor: pointer;" data-field="city" onclick="{!c.doSort}">
+                                                            City &nbsp;
+                                                            <aura:if isTrue="{!v.sortOrderField == 'city'}">
+                                                                <lightning:buttonIcon value="city" iconName="{!v.sortOrder == 'asc' ? 'utility:arrowup' : 'utility:arrowdown'}"
+                                                                                      variant="bare" name="sort" />
+                                                            </aura:if>
+                                                        </div>
+                                                    </div>
+                                                </th>
+                                                <th class="slds-is-sortable" scope="col">
+                                                    <div title="State" class="slds-grid slds-grid_align-left slds-truncate slds-has-flexi-truncate" >
+                                                        <div style="cursor: pointer;" data-field="state" onclick="{!c.doSort}">
+                                                            State &nbsp;
+                                                            <aura:if isTrue="{!v.sortOrderField == 'state'}">
+                                                                <lightning:buttonIcon value="state" iconName="{!v.sortOrder == 'asc' ? 'utility:arrowup' : 'utility:arrowdown'}"
+                                                                                      variant="bare" name="sort" />
+                                                            </aura:if>
+                                                        </div>
+                                                    </div>
+                                                </th>
+                                                <th class="slds-is-sortable" scope="col">
+                                                    <div title="R365 Sales" class="slds-grid slds-grid_align-left slds-truncate slds-has-flexi-truncate" >
+                                                        <div style="cursor: pointer;" data-field="r365Sales" onclick="{!c.doSort}">
+                                                            R365 Sales &nbsp;
+                                                            <aura:if isTrue="{!v.sortOrderField == 'r365Sales'}">
+                                                                <lightning:buttonIcon value="r365Sales" iconName="{!v.sortOrder == 'asc' ? 'utility:arrowup' : 'utility:arrowdown'}"
+                                                                                      variant="bare" name="sort" />
+                                                            </aura:if>
+                                                        </div>
+                                                    </div>
+                                                </th>                                            
+                                            </tr>
+                                        </thead>
+                                        
+                                        <!--div class="slds-scrollable-y" height="100%">
+                                    <!-<ui:scrollerWrapper class="wrap-scroll">->
+                                    <table class="slds-table slds-table-bordered slds-table-fixed-layout slds-no-row-hover" role="grid"-->
+                                        <tbody>
+                                            <aura:iteration items="{!v.WorkitemList}" var="workitem" indexVar="wIIndex">
+                                                <tr>
+                                                    <td role="gridcell" colspan="1">
+                                                        <div class="slds-truncate" title="objectType">{!workitem.objectType}</div>
+                                                    </td>
+                                                    <td role="gridcell" colspan="1">
+                                                        <div class="slds-truncate" title="accountName">{!workitem.accName}</div>
+                                                    </td>
+                                                    <td role="gridcell" colspan="1">
+                                                        <div class="slds-truncate" data-index="{!wIIndex}" data-cpl="{!workitem.CPL}" data-objecttype="{!workitem.objectType}" data-id="{!workitem.objectId}" onclick="{!c.openDetailPage}" title="accountNumber"><a href="javascript:void(0);">{!workitem.name}</a></div>
+                                                    </td>                                                    
+                                                    <td role="gridcell" colspan="1">
+                                                        <div class="slds-truncate" data-id="{!workitem.customerGroup}" title="customerGroup">{!workitem.customerGroup}</div>
+                                                    </td>
+                                                    <td role="gridcell" colspan="1">
+                                                        <div class="slds-truncate " title="City">{!workitem.city}</div>
+                                                    </td>
+                                                    <td role="gridcell" colspan="1">
+                                                        <div class="slds-truncate " title="State">{!workitem.state}</div>
+                                                    </td>
+                                                    <td role="gridcell" colspan="1">
+                                                        <div class="slds-truncate " title="r365Sales">{!workitem.r365Sales}</div>
+                                                    </td>                                                    
+                                                </tr>
+                                            </aura:iteration>
+                                        </tbody>
+                                        <!--/table>
+                                    <!-</ui:scrollerWrapper>->
+                                </div-->
+                                    </table>
+                                    <div class="slds-is-relative slds-p-top--small slds-p-bottom--small infinite-loading">
+                                    </div>
+                                </div>
+                            </ui:scrollerWrapper>
+                        </aura:set> 
+                    </aura:if>  
+                    <aura:set attribute="else">
+                        <p class="slds-text-heading--small slds-p-bottom--medium slds-p-top--medium">{!v.statusMessage}</p>                        
+                    </aura:set>
+                </aura:renderIf>
+                <div>&nbsp;</div>
+                <div>&nbsp;</div>
+                <!--</ul>-->
+            </div>
+        </div>
+        <lightning:spinner variant="brand" size="medium" class="slds-hide" aura:id="spinner"/>
+    </div>
+</aura:component>
+
+CONTROLLER
+({
+    doInit : function(component, event, helper) {
+        console.log('Device type : ' + component.get('v.device'));
+        helper.getWorkitemList(component, event);
+    },
+    
+    openDetailPage: function (component, event, helper) {
+        var cpl = event.currentTarget.dataset.cpl;
+        var recId = event.currentTarget.dataset.id;
+        var index = event.currentTarget.dataset.index;
+        var objectType = event.currentTarget.dataset.objecttype;
+        console.log("WorkItemList: " + component.get('v.WorkitemList'));
+        console.log("index: " + index);
+        console.log('cpl: ' + cpl);
+        console.log('objectType: ' + objectType);
+        if(objectType === 'OPE'){
+            var wIDataList = component.get('v.WorkitemList');
+            var wIData = wIDataList[index];	     
+            console.log('wIData: ' + JSON.stringify(wIData));
+            var evt = $A.get("e.force:navigateToComponent");  
+            evt.setParams({
+                componentDef : "c:ApprovalScreen",
+                componentAttributes: {
+                    wIData: wIData,
+                    objectType: objectType
+                }
+            });
+            evt.fire();            
+        }
+        else if(cpl === 'false'){
+            var urlEvent = $A.get("e.force:navigateToSObject");
+            urlEvent.setParams({
+                "recordId" : event.currentTarget.dataset.id});
+            urlEvent.fire();
+        }else{
+            var wIDataList = component.get('v.WorkitemList');
+            var wIData = wIDataList[index];	
+            /*for(var i in wIDataList){
+                if(wIDataList[i].objectId === recId){
+                    wIData = wIDataList[i];
+                    break;
+                }
+            }*/
+            console.log('wIData: ' + JSON.stringify(wIData));
+            var evt = $A.get("e.force:navigateToComponent");
+            evt.setParams({
+                componentDef : "c:ApprovalScreen",
+                componentAttributes: {
+                    wIData: wIData,
+                    cplIdWIIdMap: component.get('v.cplIdWIIdMap'),
+                    objectType: objectType
+                }
+            });
+            evt.fire();
+        }
+    },
+                          
+    changeMultiSelectFilter : function( component, event, helper ){
+        console.log('In changeMultiSelectFilter --> ');
+        var tabLabel = event.getSource().get("v.id");  
+        component.set("v.tabLabel", tabLabel)      
+        console.log('tabLabel --> '+tabLabel);
+        var optionMap = component.get("v.optionMap");      
+        component.set( "v.filterOptions",optionMap[tabLabel] );       
+    }, 
+        
+    handleSelectChange: function(component, event, helper) {             
+        
+        var selectedVal = event.getParam("data");
+        console.log("data --> "+JSON.stringify( selectedVal[0].values ));                
+        console.log("data --> "+JSON.stringify( selectedVal )); 
+        if( selectedVal[0].label == 'Approval Status' ){
+            console.log( 'In approval Status --> ' );
+            var seletedStatus = [];
+            var statusList = component.get( "v.statusList" );
+            var statusListLen = statusList.length;
+            var selectedValLen = selectedVal[0].values.length;
+            console.log('selectedVal[0].values: ' + JSON.stringify(selectedVal[0].values));
+            for( var i = 0; i<selectedValLen; i++ ){
+                for( var j = 0; j<statusListLen; j++ ){
+                    console.log('selectedVal[0].values[i]: ' + JSON.stringify(selectedVal[0].values[i]));
+                    if( statusList[j].value == selectedVal[0].values[i] ){
+                        seletedStatus.push(statusList[j].label);
+                    }
+                }    
+            }
+            component.set( "v.selectedStatusList", seletedStatus );
+        }
+        
+        if( selectedVal[0].label == 'Object Type' ){
+            console.log( 'In approval filter --> ' );	
+            var selectedObject = [];
+            var filterOptions = component.get( "v.filterOptions" );  
+            var filterOptionsLen = filterOptions.length;
+            selectedValLen = selectedVal[0].values.length;
+            for( var i = 0; i<selectedValLen; i++ ){
+                for( var j = 0; j<filterOptionsLen; j++ ){
+                    if( filterOptions[j].value == selectedVal[0].values[i] ){
+                        selectedObject.push(filterOptions[j].label);
+                    }
+                }    
+            }
+            component.set( "v.selectedfilterOptions", selectedObject );            
+        }
+        
+        var selectedObject = component.get( "v.selectedfilterOptions" );
+        var seletedStatus = component.get( "v.selectedStatusList" );
+        
+        console.log( 'selectedObject --> '+selectedObject.length );
+        console.log( 'seletedStatus --> '+seletedStatus.length );
+        
+        var WorkitemList = component.get("v.dataMap");        
+        var WorkitemListFinal = [];
+        console.log( 'WorkitemList --> '+JSON.stringify( WorkitemList ) );
+        for( var i = 0; i<WorkitemList.length; i++ ){            
+            if( selectedObject.length > 0 && seletedStatus.length > 0 ){
+                if( selectedObject.indexOf( WorkitemList[i].objectType ) > -1 && 
+                   seletedStatus.indexOf( WorkitemList[i].status ) > -1  ){
+                    WorkitemListFinal.push( WorkitemList[i] );
+                }
+            }else if( selectedObject.length == 0 && seletedStatus.length > 0 ){
+                if( seletedStatus.indexOf( WorkitemList[i].status ) > -1 ){
+                    WorkitemListFinal.push( WorkitemList[i] );
+                }
+            }else if( selectedObject.length > 0 && seletedStatus.length == 0 ){                
+                if( selectedObject.indexOf( WorkitemList[i].objectType ) > -1 ){
+                    WorkitemListFinal.push( WorkitemList[i] );
+                }                    
+            }else{
+                component.set( "v.WorkitemList", component.get("v.dataMap") );
+            } 
+        }
+        console.log( 'WorkitemListFinal --> '+JSON.stringify( WorkitemListFinal ) );        
+        if( selectedObject.length > 0 || seletedStatus.length > 0 ){
+            component.set("v.WorkitemList", WorkitemListFinal );    
+        }            
+    },
+        
+    onChange : function( component, event, helper ){
+        console.log( 'In onChange --> ' );
+        var val = component.find('approvalId').get('v.value');
+        var status2Recs = component.get("v.status2Recs");
+        var optionMap = component.get("v.optionMap");        
+        console.log( 'Work Item List --> '+JSON.stringify( status2Recs[val] ) );
+        if( val == '--None--' ){
+            component.set("v.WorkitemList",component.get("v.dataMap") );
+        }
+        if( status2Recs[val] != null ){ component.set("v.WorkitemList",status2Recs[val] ); }
+        if( optionMap[val] != null ){ component.set("v.filterOptions",optionMap[val]); }        
+    },
+    /*handleApproval : function( component, event, helper ){
+        helper.handleApprovalHelper( component, event, helper );
+    },*/
+
+    doSort : function( component,event,helper ){
+        helper.sortHelper(component, event, helper);
+    }
+})
+
+HELPER
+({
+    getWorkitemList : function(component, event) {
+        var spinner = component.find('spinner');
+        $A.util.addClass(spinner, 'slds-show');
+        $A.util.removeClass(spinner, 'slds-hide');
+        var action = component.get('c.getApprovalWorkitems');
+        action.setCallback(this, function (response) {
+            var state = response.getState();
+            if (component.isValid() && state === 'SUCCESS') {                                
+                var resultList = response.getReturnValue();                                            
+                var options = [];
+                for(var key in resultList.statusList){
+                    options.push({label: resultList.statusList[key],
+                                  value: resultList.statusList[key],                        
+                                  selected: false});  
+                }
+                component.set("v.statusList", options);
+                options = [];
+                for(var key in resultList.objectList){
+                    options.push({label: resultList.objectList[key],
+                                  value: resultList.objectList[key],                        
+                                  selected: false});  
+                }
+                console.log('resultList.appReqList: ' + JSON.stringify(resultList.appReqList));
+				component.set("v.filterOptions", options);                
+                component.set("v.dataMap", resultList.appReqList );                
+                component.set('v.WorkitemList', resultList.appReqList);
+                //component.set('v.dataList', resultList.appReqList);
+                component.set("v.cplIdWIIdMap", resultList.cplIdWIIdMap );
+                this.sortHelper(component, event);
+            }else{
+                alert('Error occured. Please try after sometime or contact System Administrator');
+            }
+            
+            $A.util.addClass(spinner, 'slds-hide');
+            $A.util.removeClass(spinner, 'slds-show');
+        });
+        $A.enqueueAction(action);
+        
+    },
+    /*handleApprovalHelper : function( component,event,helper ){
+        var val = event.getSource().get('v.label');
+        console.log( 'val --> '+val );
+        var action = component.get('c.updateApprovalStatus');
+    },*/
+    
+    sortHelper : function( component,event,helper){
+        var _currentSortField = component.get("v.sortOrderField");
+        var _currentSortOrder = component.get("v.sortOrder"); 
+        var _sortOrder; var _sortOrderField;
+        var _dataList = component.get("v.WorkitemList");
+        
+        if(event.currentTarget !== undefined){
+            _sortOrderField = event.currentTarget.dataset.field;
+        }else{
+            _sortOrderField = _currentSortField;
+        }
+        if(_currentSortOrder !== undefined){
+        	_sortOrder = (_sortOrderField == _currentSortField && _currentSortOrder == 'asc') ? 'desc' : 'asc';
+        }else{
+            _sortOrder = 'asc';
+        }
+        //do sorting
+        if (!$A.util.isUndefinedOrNull(_sortOrderField)) {
+            _dataList.sort(function(a, b) {
+                var val1 = a[_sortOrderField];
+                var val2 = b[_sortOrderField];
+                console.log('val1 - val2: ' + val1 + ' - ' + val2);
+                if (_sortOrder == 'asc')
+                    return (val1 > val2) ? 1 : ((val1 < val2) ? -1 : 0);
+                else {
+                    return (val2 > val1) ? 1 : ((val2 < val1) ? -1 : 0);
+                }
+            });
+        }
+        
+        component.set("v.WorkitemList", _dataList);
+        component.set("v.sortOrder", _sortOrder);
+        component.set("v.sortOrderField", _sortOrderField);
+        console.log('workItemList: ' + JSON.stringify(_dataList));
+    }  
+})
+
+SERVER SIDE CONTROLLER
+public with sharing class ApprovalRequest_CC {
+    public static List<String> cplObjects = new List<String>{'Residential Broadloom', 'Commercial Broadloom', 'Cushion', 'Carpet Tile', 'Rev Wood', 'Tec Wood', 'Solid Wood', 'Tile', 'Resilient Tile', 'Resilient Sheet', 'Care and Maintenance', 'Installation Accessories'};
+        public static String userProfile = UtilityCls.getProfileName(UserInfo.getProfileId());
+    public static final String ROLE_TM = 'TM';
+    public static final String ROLE_DM = 'DM';
+    public static final String ROLE_RVP = 'RVP';
+    public static final String ROLE_SALESOPS = 'SalesOps';
+    
+    public static String userRole{
+        get{
+            if (userRole == null){
+                userRole = ResidentialPricingGridUtility.getRoleByLoggedUser();
+            }
+            return userRole;
+        }
+        set;
+    }
+    
+    public static Set<String> getAccessLevelFilter(){
+        Set<String> metadataFilters = new Set<String>();
+        metadataFilters.add('');
+        if (userRole == ROLE_DM || userRole == ROLE_RVP || userRole == ROLE_SALESOPS){
+            metadataFilters.add(ROLE_DM);
+        }
+        if (userRole == ROLE_RVP || userRole == ROLE_SALESOPS){
+            metadataFilters.add(ROLE_RVP);
+        }
+        return metadataFilters;
+    }
+    
+    
+    @AuraEnabled
+    public static wrapApproval getApprovalWorkitems(){
+        wrapApproval wrapApprovalObj = new wrapApproval(); 
+        Set<Id> userIds = new Set<Id>();
+        Set<String> objIds = new Set<String>();
+        Map<Id, String> userIdNameMap = new Map<Id, String>();
+        List<ProcessInstance> procInstanceList = new List<ProcessInstance>();
+        Set<String> statusSet = new Set<String>();
+        Set<String> objectSet = new Set<String>();
+        Map<String, Set<Id>> cplIdMap = new Map<String, Set<Id>>();
+        Map<String, Map<Id, sObject>> cplObjectMap = new Map<String, Map<Id, sObject>>();
+        Map<Id, Map<String, List<Id>>> accCPLObjectIdMap = new Map<Id, Map<String, List<Id>>>();
+        Map<Id, Id> cplIdWIIdMap = new Map<Id, Id>();
+        Map<Id, Map<Id, Id>> accIdcplIdWIIdMap = new Map<Id, Map<Id, Id>>();
+        Set<Id> procInstIdSet = new Set<Id>();
+        Map<Id, String> approvalCommentsMap = new Map<Id, String>();
+        Map<Id, Map<Id, String>> accIdApprCommentsMap = new Map<Id, Map<Id, String>>();
+        String logonuserId = UserInfo.getUserId();
+        String approver = '';
+        ID residentialRecordType = UtilityCls.getRecordTypeInfo('Territory_User__c', 'Residential');
+        
+        if(Test.isRunningTest()){
+            //logonuserId='0052C000000XmIFQA0';
+            try{
+                //logonuserId=[SELECT ID,PROFILE.NAME,Name FROM USER WHERE NAME='Strategic Admin' LIMIT 1].ID;
+            }
+            catch(exception e){
+                system.debug('exception e'+e);
+            }
+            
+        }
+        
+        List<ProcessInstance> procInstList = [SELECT Id, TargetObjectId, TargetObject.Name, Status, SubmittedById, SubmittedBy.FirstName, SubmittedBy.LastName, CreatedDate,
+                                              (SELECT Id, ActorId, ProcessInstanceId FROM Workitems WHERE ActorId =: logonuserId)
+                                              FROM ProcessInstance Where Status =: UtilityCls.Pending ORDER BY CreatedDate DESC];
+        
+        if(procInstList.size()>0){
+            for(ProcessInstance procInst: procInstList){
+                for(ProcessInstanceWorkitem wI: procInst.Workitems){
+                    if(cplObjects.contains(UtilityCls.getObjectLabelById(procInst.TargetObjectId))){
+                        String objectTypeAPI = UtilityCls.getObjectNameById(procInst.TargetObjectId);
+                        if(!cplIdMap.containsKey(objectTypeAPI)){
+                            cplIdMap.put(objectTypeAPI, new Set<Id>{procInst.TargetObjectId});
+                        }else{
+                            cplIdMap.get(objectTypeAPI).add(procInst.TargetObjectId);
+                        }
+                    }
+                    cplIdWIIdMap.put(procInst.TargetObjectId, wI.Id);
+                    procInstIdSet.add(procInst.Id);
+                }
+            }
+        }
+        
+        // Add logic to extract OPE from procInstList
+        
+        if(procInstIdSet.size()>0){
+            for(List<ProcessInstanceStep> pIStepList : [SELECT Id, Actor.Name, ProcessInstanceId, ProcessInstance.TargetObjectId, Comments FROM ProcessInstanceStep 
+                                                        WHERE ProcessInstanceId IN: procInstIdSet
+                                                        AND StepStatus IN ('Approved', 'Rejected')]){
+                                                            for(ProcessInstanceStep pIStep: pIStepList){
+                                                                String comments = '';
+                                                                if(approvalCommentsMap.containsKey(pIStep.ProcessInstance.TargetObjectId)){
+                                                                    comments = approvalCommentsMap.get(pIStep.ProcessInstance.TargetObjectId);
+                                                                } 
+                                                                comments += '<b>Commented By: ' + pIStep.Actor.Name + '</b><br />';
+                                                                comments += pIStep.Comments + '<br />';
+                                                                comments += '--------------<br />';
+                                                                approvalCommentsMap.put(pIStep.ProcessInstance.TargetObjectId, comments);
+                                                            } 
+                                                        }
+        }
+        
+        if(cplIdMap.size()>0){
+            for(String cplObject: cplIdMap.keySet()){
+                Set<Id> cplIdSet = cplIdMap.get(cplObject);
+                Map<Id, sObject> cplObjMap = new Map<Id, sObject>();
+                String query = 'SELECT Id, Account__r.Id, Account__r.Name, Account__r.CAMS_Account_Number__c, Account__r.ShippingCity, Account__r.ShippingState, ' +
+                    ' Account__r.Account_Profile__r.AMP_Total__c, Product__r.Salesforce_Product_Category__c, DM_Approver__c, RVP_Approver__c FROM ' + 
+                    cplObject + ' WHERE Id IN: cplIdSet';
+                System.debug('query: ' + query);
+                for(List<sObject> cplList: Database.query(query)){
+                    for(sObject sObj: cplList){
+                        Id accId = String.valueOf(sObj.getSObject('Account__r').get('Id'));
+                        Map<String, List<Id>> cplObjectIdMap = new Map<String, List<Id>>();
+                        cplObjMap.put(sObj.Id, sObj);
+                        if(!cplObjectMap.containsKey(cplObject)){
+                            cplObjectMap.put(cplObject, cplObjMap);
+                        }else{
+                            cplObjectMap.get(cplObject).putAll(cplObjMap);
+                        }
+                        
+                        if(!accCPLObjectIdMap.containsKey(accId)){
+                            cplObjectIdMap.put(cplObject, new List<Id>{String.valueOf(sObj.get('Id'))});
+                            accCPLObjectIdMap.put(accId, cplObjectIdMap);
+                        }else{
+                            cplObjectIdMap = accCPLObjectIdMap.get(accId);
+                            Id cplId = String.valueOf(sObj.get('Id'));
+                            if(cplObjectIdMap.containsKey(cplObject)){
+                                cplObjectIdMap.get(cplObject).add(cplId);
+                            }else{
+                                cplObjectIdMap.put(cplObject, new List<Id>{String.valueOf(sObj.get('Id'))});
+                            }
+                            accCPLObjectIdMap.get(accId).putAll(cplObjectIdMap);
+                        }
+                        
+                        
+                        if(!accIdcplIdWIIdMap.containsKey(accId)){
+                            accIdcplIdWIIdMap.put(accId, new Map<Id, Id>{sObj.Id=> cplIdWIIdMap.get(sObj.Id)});
+                        }else{
+                            accIdcplIdWIIdMap.get(accId).putAll(new Map<Id, Id>{sObj.Id=> cplIdWIIdMap.get(sObj.Id)});
+                        }
+                        if(approvalCommentsMap.size()>0){
+                            if(!accIdApprCommentsMap.containsKey(accId)){
+                                accIdApprCommentsMap.put(accId, new Map<Id, String>{sObj.Id=> approvalCommentsMap.get(sObj.Id)});
+                            }else{
+                                accIdApprCommentsMap.get(accId).putAll(new Map<Id, String>{sObj.Id=> approvalCommentsMap.get(sObj.Id)});
+                            }
+                        }
+                        
+                        if(sObj.get('DM_Approver__c') != null && sObj.get('DM_Approver__c') == logonuserId){
+                            approver = 'DM';
+                        }
+                        if(sObj.get('RVP_Approver__c') != null && sObj.get('RVP_Approver__c') == logonuserId){
+                            approver = 'RVP';
+                        }
+                    }
+                }
+            }
+        }
+        System.debug('accIdcplIdWIIdMap: ' + accIdcplIdWIIdMap);
+        for(ProcessInstance procInst : procInstList){
+            for(ProcessInstanceWorkitem wI: procInst.Workitems){
+                wrapApprovalRequest appReq = new wrapApprovalRequest();
+                Map<Id, sObject> cplObjMap = new Map<Id, sObject>();
+                
+                String camsAccNum = '';
+                Date submitDate = procInst.CreatedDate.date();
+                appReq.submittedDate = submitDate.format();
+                appReq.name = procInst.TargetObject.Name;
+                appReq.objectId = appReq.id = wI.Id;
+                appReq.objectType = UtilityCls.getObjectLabelById(procInst.TargetObjectId);
+                appReq.objectTypeAPI = UtilityCls.getObjectNameById(procInst.TargetObjectId);
+                switch on approver{
+                    when 'DM'{
+                        appReq.DMUser = true;
+                    }
+                    when 'RVP'{
+                        appReq.RVPUser = true;
+                    }
+                }
+                if(cplObjects.contains(appReq.objectType)){
+                    appReq.objectId = procInst.TargetObjectId;
+                    appReq.CPL = true;
+                    cplObjMap = cplObjectMap.get(appReq.objectTypeAPI);
+                    for(sObject sObj: cplObjMap.values()){
+                        if(sObj != null && sObj.get('Id') == appReq.objectId){
+                            appReq.objectId = String.valueOf(sObj.getSObject('Account__r').get('Id'));
+                            camsAccNum = appReq.name = String.valueOf(sObj.getSObject('Account__r').get('CAMS_Account_Number__c'));
+                            appReq.accName = String.valueOf(sObj.getSObject('Account__r').get('Name'));
+                            appReq.city = String.valueOf(sObj.getSObject('Account__r').get('ShippingCity'));
+                            appReq.state = String.valueOf(sObj.getSObject('Account__r').get('ShippingState'));
+                            appReq.r365Sales = Double.valueOf(sObj.getSObject('Account__r').getSObject('Account_Profile__r').get('AMP_Total__c'));
+                            break;
+                        }
+                    }
+                    cplIdWIIdMap.put(procInst.TargetObjectId, wI.Id);
+                    if(!objIds.contains(camsAccNum)){
+                        objIds.add(appReq.name);
+                        appReq.listOfCPLIds = accCPLObjectIdMap.get(appReq.objectId);
+                        appReq.cplIdWIIdMap = accIdcplIdWIIdMap.get(appReq.objectId);
+                        if(accIdApprCommentsMap.size()>0 && accIdApprCommentsMap.containsKey(appReq.objectId)){
+                            appReq.cplIdCommentsMap = accIdApprCommentsMap.get(appReq.objectId);
+                        }
+                    }else{
+                        continue;
+                    }
+                    appReq.objectType = 'CPL';
+                }
+                appReq.submittedById = procInst.SubmittedById;                                                
+                appReq.submittedBy = procInst.SubmittedBy.FirstName + ' ' + procInst.SubmittedBy.LastName;
+                appReq.status = procInst.Status;
+                if(appReq.accName == null){ appReq.accName = ''; }
+                if(appReq.city == null){ appReq.city = ''; }
+                if(appReq.state == null){ appReq.state = ''; }
+                if(appReq.r365Sales == null){ appReq.r365Sales = 0.00; }
+                wrapApprovalObj.appReqList.add(appReq);
+                statusSet.add(procInst.Status);
+                objectSet.add(appReq.objectType);
+                System.debug('appReq: ' + appReq);
+            }
+        }
+        
+        /* Start of JR edits */
+        
+        List<Territory_User__c> tus = new List<Territory_User__c>(
+            [SELECT Id, Name 
+             FROM Territory_User__c 
+             WHERE User__c = :logonuserId 
+             AND Role__c = 'Territory Manager' 
+             AND RecordTypeId = :residentialRecordType]
+        );
+        
+        Set<String> tuNums = new Set<String>();
+        for(Territory_User__c tu : tus){tuNums.add(tu.Name);}
+        
+        if(tuNums.size()>0){
+            Map<Id, List<Id>> acctIdOPEIdsMap = new Map<Id, List<Id>>();
+            Map<Id, OPE__c> opeMap = new Map<Id, OPE__c>();
+            
+            for(OPE__c ope : [SELECT Id, Name, Account__c, 
+                              Account__r.Account_Profile__r.AMP_Total__c, 
+                              Account__r.CAMS_Account_number__c,  
+                              Account__r.ShippingCity, 
+                              Account__r.ShippingState, 
+                              Account__r.Customer_Group__c,
+                              Account__r.Name, Approval_Status__c
+                              FROM OPE__c 
+                              WHERE TM_Number__c IN :tuNums 
+                              // JR :  Can we create a default status or other solution to prevent null check anitpattern?
+                              AND Approval_Status__c = null
+                             ]){
+                                 if(acctIdOPEIdsMap.containsKey(ope.Account__c)){
+                                     List<Id> opes = acctIdOPEIdsMap.get(ope.Account__c);
+                                     opes.add(ope.Id);
+                                     opeMap.put(ope.Id, ope);
+                                     acctIdOPEIdsMap.put(ope.Account__c, opes);
+                                 }
+                                 else{
+                                     List<Id> opes = new List<Id>();
+                                     opes.add(ope.Id);
+                                     opeMap.put(ope.Id, ope);
+                                     acctIdOPEIdsMap.put(ope.Account__c, opes);
+                                 }
+                             }  
+            
+            for(Id acctId : acctIdOPEIdsMap.keySet()){
+                List<Id> opes = acctIdOPEIdsMap.get(acctId);
+                OPE__c firstOPE = opeMap.get(opes[0]);
+                wrapApprovalRequest appReq = new wrapApprovalRequest();
+                appReq.accName = firstOPE.Account__r.Name;
+                appReq.accountId = acctId;
+                appReq.city = firstOPE.Account__r.ShippingCity;
+                appReq.state = firstOPE.Account__r.ShippingState;
+                appReq.customerGroup = firstOPE.Account__r.Customer_Group__c; 
+                appReq.listOfOPEIds = opes;
+                appReq.name = firstOPE.Account__r.CAMS_Account_number__c;
+                appReq.objectType = UtilityCls.getObjectLabelById(firstOPE.Id);
+                appReq.objectTypeAPI = UtilityCls.getObjectNameById(firstOPE.Id);
+                appReq.r365Sales = firstOPE.Account__r.Account_Profile__r.AMP_Total__c;
+                appReq.TMUser = true;
+                wrapApprovalObj.appReqList.add(appReq);
+                statusSet.add(firstOPE.Approval_Status__c);
+                objectSet.add(appReq.objectType);
+            }
+        }        
+        
+        
+        
+        /* End of JR edits */
+        // JR Edit:  added Claim__r.Account__r.CAMS_Account_number__c to query & updated appReq.name = Claim__r.Account__r.CAMS_Account_number__c         
+        for(List<Claim_Approvers__c> claimApprList : [SELECT Id, Approver__c, CreatedById, Submitter_Name__c, Claim__c, Claim__r.Name, Claim__r.Account__c,
+                                                      Claim__r.Account__r.name, Claim__r.Account__r.ShippingCity, Claim__r.Account__r.ShippingState, 
+                                                      Claim__r.Account_Global_Id__c, Claim__r.Claim_Amount__c, Claim__r.Status__c, Claim__r.Account__r.Account_Profile__r.AMP_Total__c, 
+                                                      Claim__r.Claim_Type__c, Claim__r.Claim_Submit_Date__c, Claim__r.Account__r.CAMS_Account_number__c                                           
+                                                      FROM Claim_Approvers__c
+                                                      Where Approver__c =: logonuserId
+                                                      AND Claim__c IN (SELECT Id FROM Claim__c Where Status__c IN ('INPROCESS' , 'ACTIONREQUIRED'))]){
+                                                          for(Claim_Approvers__c claimAppr : claimApprList){
+                                                              wrapApprovalRequest appReq = new wrapApprovalRequest();
+                                                              if(claimAppr.Claim__r.Claim_Submit_Date__c != null){
+                                                                  appReq.submittedDate = claimAppr.Claim__r.Claim_Submit_Date__c.format();
+                                                              }
+                                                              appReq.objectType = UtilityCls.getObjectLabelById(claimAppr.Claim__c);
+                                                              appReq.submittedBy = claimAppr.Submitter_Name__c;
+                                                              appReq.name = claimAppr.Claim__r.Account__r.CAMS_Account_number__c;
+                                                              appReq.submittedById = claimAppr.CreatedById;
+                                                              appReq.objectId = appReq.id = claimAppr.Claim__c;
+                                                              System.debug( 'Acc Name --> '+claimAppr.Claim__r.Account__r.name );
+                                                              appReq.accName = claimAppr.Claim__r.Account__r.name;
+                                                              appReq.city = claimAppr.Claim__r.Account__r.ShippingCity;
+                                                              appReq.state = claimAppr.Claim__r.Account__r.ShippingState;
+                                                              appReq.r365Sales = claimAppr.Claim__r.Account__r.Account_Profile__r.AMP_Total__c;
+                                                              if(appReq.r365Sales == null){ appReq.r365Sales = 0.00; }
+                                                              appReq.status = claimAppr.Claim__r.Status__c;
+                                                              wrapApprovalObj.appReqList.add(appReq);
+                                                              statusSet.add(claimAppr.Claim__r.Status__c);
+                                                              objectSet.add(appReq.objectType);
+                                                          }
+                                                      }
+        
+        for(List<Order_Item_Approval__c> orderItemApprList : [SELECT Id, Current_Approver__c,Sample_Order__r.OrderNumber, Approval_Status__c,  
+                                                              CreatedById, CreatedDate, Product__c, Submitted_By__c, Account_Name__c, Sample_Order__r.Account.Account_Profile__r.AMP_Total__c, 
+                                                              Sample_Order__r.Account.CAMS_account_number__c, Sample_Order__r.Account.ShippingCity, Sample_Order__r.Account.ShippingState 
+                                                              FROM Order_Item_Approval__c
+                                                              Where Current_Approver__c =: logonuserId
+                                                              AND Approval_Status__c = 'Sent for Approval'  
+                                                              AND Order_Item_Approval_Required__c = true]){
+                                                                  for(Order_Item_Approval__c orderItemAppr: orderItemApprList){
+                                                                      wrapApprovalRequest appReq = new wrapApprovalRequest();
+                                                                      Date submittedDate = Date.valueOf(orderItemAppr.CreatedDate);
+                                                                      appReq.submittedDate = submittedDate.format();
+                                                                      appReq.objectType = 'Sample Order';//UtilityCls.getObjectLabelById(orderItemAppr.Id);
+                                                                      appReq.submittedBy = orderItemAppr.Submitted_By__c;
+                                                                      appReq.name = orderItemAppr.Sample_Order__r.Account.CAMS_account_number__c;
+                                                                      appReq.submittedById = orderItemAppr.CreatedById;
+                                                                      appReq.objectId = appReq.id = orderItemAppr.Id;
+                                                                      System.debug( 'Acc Name --> '+orderItemAppr.Account_Name__c );
+                                                                      appReq.accName = orderItemAppr.Account_Name__c;
+                                                                      appReq.city = orderItemAppr.Sample_Order__r.Account.ShippingCity;
+                                                                    appReq.state = orderItemAppr.Sample_Order__r.Account.ShippingState;
+                                                                      appReq.r365Sales = orderItemAppr.Sample_Order__r.Account.Account_Profile__r.AMP_Total__c;
+                                                                      if(appReq.r365Sales == null){ appReq.r365Sales = 0.00; }
+                                                                      appReq.status = orderItemAppr.Approval_Status__c;
+                                                                      wrapApprovalObj.appReqList.add(appReq);
+                                                                      statusSet.add(orderItemAppr.Approval_Status__c);
+                                                                      objectSet.add(appReq.objectType);
+                                                                  }
+                                                              }
+        
+        wrapApprovalObj.statusList = new List<String>(statusSet);
+        wrapApprovalObj.objectList = new List<String>(objectSet);
+        System.debug('processInstance: ' + wrapApprovalObj);
+        return wrapApprovalObj;
+    }
+    
+    @AuraEnabled
+    public static wrapObjData getCPLWorkitems(String cplRequest){
+        wrapApprovalRequest apprReq = (wrapApprovalRequest)JSON.deserialize(cplRequest, wrapApprovalRequest.class);
+        wrapObjData cplRet = new wrapObjData();
+        
+        //List Declarations
+        List<Grid_Approval_UI__mdt> listMDT = new List<Grid_Approval_UI__mdt>();
+        List<String> listPGfields = new List<String>();
+        List<String> listCPLfields = new List<String>();
+        List<String> prodCatList = new List<String>();
+        List<String> fieldPosList = new List<String>();
+        List<wrapObj> cplList = new List<wrapObj>(); 
+        
+        //Set Declarations
+        Set<String> pgIdSet = new Set<String>();
+        Set<String> metadataFilterList = getAccessLevelFilter();
+        //Map Declarations
+        Map<String,List<String>>   mapListofCPLfields = new Map<String,List<String>>();
+        List<String>          listofPGfields = new List<String>();
+        Map<String, Price_Grid__c>   pgExtIdObjMap = new Map<String, Price_Grid__c>();
+        Map<String, List<SObject>>   prodCatCPLObjMap = new Map<String, List<SObject>>();
+        Map<String, String>     prodCatAPILabelMap = new Map<String,String>();
+        Map<String, Map<String, Grid_Approval_UI__mdt>> metadatafieldMap = new Map<String, Map<String, Grid_Approval_UI__mdt>>();
+        Map<String, Map<String, Grid_Approval_UI__mdt>> metadatafieldCPLMap = new Map<String, Map<String, Grid_Approval_UI__mdt>>();
+        Map<String, Map<String, Grid_Approval_UI__mdt>> metadatafieldPGMap = new Map<String, Map<String, Grid_Approval_UI__mdt>>();
+        
+        
+        //Primitive Datatype Declarations
+        String query = ''; 
+        String position = 'Position__c';
+        
+        if(apprReq.isPhone){position = 'Mobile_Position__c';}
+        
+        //Get Grid Approval UI metadata records based on user's role and Product Categories that match those of CPL Ids
+        Set<String> prodCatAPIList = apprReq.listOfCPLIds.keySet();
+        query = 'SELECT id,Field_API_Name__c,Field_Label__c,Position__c,Special_Handling__c,Field_View_Type__c,Mobile_View_Type__c,Access_Level__c, Data_Type__c, ' +
+              'Mobile_Position__c,Grid_Product_Category__r.SObject_Name__c, Grid_Product_Category__r.Product_Category__c, Grid_Product_Category__c ' +
+              'FROM Grid_Approval_UI__mdt WHERE Access_Level__c IN: metadataFilterList AND Grid_Product_Category__r.SObject_Name__c IN: prodCatAPIList ORDER BY '+ position;
+        for(Grid_Approval_UI__mdt mdt : Database.query(query)){
+            Map<String, Grid_Approval_UI__mdt> metadataMap = new Map<String, Grid_Approval_UI__mdt>();
+            String pcName = mdt.Grid_Product_Category__r.SObject_Name__c;
+            //if Product Category not present in list, adds it to list and updates map 
+            if(!prodCatList.contains(mdt.Grid_Product_Category__r.Product_Category__c)){
+                prodCatList.add(mdt.Grid_Product_Category__r.Product_Category__c); 
+                prodCatAPILabelMap.put(pcName, mdt.Grid_Product_Category__r.Product_Category__c);
+            }
+            
+            if( String.isNotBlank( mdt.Field_API_Name__c )){  
+                if(metadatafieldMap.containsKey(pcName)){
+                    metadatafieldMap.get(pcName).putAll(new Map<String, Grid_Approval_UI__mdt>{mdt.Field_API_Name__c => mdt});
+                }else{
+                    metadatafieldMap.put(pcName, new Map<String, Grid_Approval_UI__mdt>{mdt.Field_API_Name__c => mdt});
+                }   
+                if(mdt.Special_Handling__c == 'Price_Grid__c'){                     
+                    if(!listofPGfields.contains(mdt.Field_API_Name__c)){
+                        listofPGfields.add(mdt.Field_API_Name__c);
+                    }
+                }else{
+                    if(mapListofCPLfields.containsKey(pcName)){
+                        mapListofCPLfields.get(pcName).add(mdt.Field_API_Name__c);
+                    }else{
+                        mapListofCPLfields.put(pcName, new List<String>{mdt.Field_API_Name__c});
+                    }  
+                }
+            }
+        }//end of for
+        
+        if(mapListofCPLfields.size()>0){
+            for(String apiName  : mapListofCPLfields.keySet()){
+                query = '';
+                List<String> fieldList = mapListofCPLfields.get(apiName);
+                system.debug('apiName ::' + apiName);   
+                query += 'Select id, ';
+                if(fieldList != null){query += String.join(new List<String>(fieldList), ', ') + ',';}
+                query += ' Price_Grid_External_Id__c';
+                List<Id> cplIds = apprReq.listOfCPLIds.get(apiName);
+                query += ' FROM ' + apiName + ' WHERE Id IN :cplIds'  ;   
+                system.debug('CPL query : ' + query);
+                for (Sobject so : Database.query(query)){
+                    if(prodCatCPLObjMap.containsKey(apiName)){
+                        prodCatCPLObjMap.get(apiName).add(so);
+                    }else{
+                        prodCatCPLObjMap.put(apiName, new List<SObject>{so});
+                    }
+                    pgIdSet.add((String)so.get('Price_Grid_External_Id__c'));
+                    
+                }
+            }
+        }
+        
+        
+        if(pgIdSet.size()>0){
+            //for(String apiName  : mapListofPGfields.keySet()){
+            //List<String> fieldList = mapListofPGfields.get(apiName);  
+            query = '';
+            query += 'Select id,';
+            query += String.join(new List<String>(listofPGfields), ', ');
+            query += ',' + 'Price_Grid_Unique_Key__c';
+            query += ' FROM Price_Grid__C WHERE Price_Grid_Unique_Key__c IN :pgIdSet'  ;   
+            system.debug('PG query : ' + query);
+            for(List<Price_Grid__c> pgList: Database.query(query)){
+                for(Price_Grid__c pg: pgList){
+                    pgExtIdObjMap.put(pg.Price_Grid_Unique_Key__c, pg);
+                }
+            }
+            //}
+        }
+        
+        fieldPosList.add('Id');
+        System.debug('apprReq.listOfCPLIds.keySet(): ' + apprReq.listOfCPLIds.keySet());
+        for(String apiName: apprReq.listOfCPLIds.keySet()){
+            if(prodCatCPLObjMap.size()>0){
+                for(SObject so : prodCatCPLObjMap.get(apiName)){
+                    wrapObj cplData = new wrapObj();
+                    List<String> fieldDataPosList = new List<String>();
+                    Map<String, String>     listOfSecondaryData = new Map<String,String>();
+                    Map<String, Grid_Approval_UI__mdt> fieldMetadataMap = metadatafieldMap.containsKey(apiName) ? metadatafieldMap.get(apiName) : null; 
+                    SObject pg = pgExtIdObjMap.containsKey(so.Id) ?  pgExtIdObjMap.get(so.Id) : null;
+                    if(fieldMetadataMap != null){
+                        for(Grid_Approval_UI__mdt mdt: fieldMetadataMap.values()){
+                            String fieldValue = ' ';
+                            
+                            if(mdt.Special_Handling__c == 'Price_Grid__c' && pg != null){
+                                fieldValue = String.valueOf(pg.get(mdt.Field_API_Name__c));
+                            }else if(mdt.Special_Handling__c == null || mdt.Special_Handling__c == ''){
+                                if(mdt.Field_API_Name__c.containsIgnoreCase('Product__r.')){
+                                    fieldValue = String.valueOf(so.getSObject('Product__r').get(mdt.Field_API_Name__c.removeStartIgnoreCase('Product__r.')));
+                                }
+                                else{
+                                    fieldValue = String.valueOf(so.get(mdt.Field_API_Name__c));
+                                }
+                            }
+                            if(fieldValue == null){fieldValue = ' ';}
+                            System.debug('mdt.Data_Type__c' + mdt.Data_Type__c);
+                            if(mdt.Data_Type__c != null || mdt.Data_Type__c != ''){
+                                if(fieldValue != ' '){
+                                    fieldValue = getDataForDataType(mdt.Data_Type__c, fieldValue);
+                                }
+                            }
+                            System.debug('field = fieldValue: ' + mdt.Field_API_Name__c + ' = ' + fieldValue);
+                            if(apprReq.isPhone){
+                                switch on mdt.Mobile_View_Type__c{
+                                    when 'Primary'{
+                                        if(!fieldPosList.contains(mdt.Field_Label__c)){fieldPosList.add(mdt.Field_Label__c);}
+                                        fieldDataPosList.add(fieldValue);
+                                    }
+                                    when 'Secondary'{
+                                        listOfSecondaryData.put(mdt.Field_Label__c, fieldValue);
+                                    }
+                                }
+                            }else{
+                                switch on mdt.Field_View_Type__c{
+                                    when 'Primary'{
+                                        if(!fieldPosList.contains(mdt.Field_Label__c)){fieldPosList.add(mdt.Field_Label__c);}
+                                        fieldDataPosList.add(fieldValue);
+                                    }
+                                    when 'Secondary'{
+                                        listOfSecondaryData.put(mdt.Field_Label__c, fieldValue);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    cplData.objectId = so.Id;
+                    cplData.recordId = apprReq.cplIdWIIdMap.get(cplData.objectId);
+                    if(apprReq.cplIdCommentsMap != null){
+                        cplData.previousComments = apprReq.cplIdCommentsMap.containsKey(cplData.objectId) ? apprReq.cplIdCommentsMap.get(cplData.objectId) : '';
+                        if(cplData.previousComments != ''){
+                            cplData.showPreviousComments = true;
+                        }
+                    }
+                    cplData.productCategory = prodCatAPILabelMap.get(apiName);
+                    cplData.isExpandable = cplData.isSelected = false;
+                    cplData.listOfPrimaryData = fieldDataPosList;
+                    cplData.listOfSecondaryData = listOfSecondaryData;
+                    cplList.add(cplData);
+                    
+                    System.debug('primaryData: ' + fieldDataPosList);
+                    System.debug('secondaryData: ' + listOfSecondaryData);
+                } // end of inner for
+            }
+        }
+        
+        cplRet.productCategories = prodCatList;
+        cplRet.listOfPrimaryFields = fieldPosList;
+        cplRet.listOfCPLData = cplList;
+        
+        return cplRet;
+    }
+    
+    public static String getDataForDataType(String dataType, String value){
+        switch on dataType{
+            when 'Text'{
+                return value;
+            }
+            when 'Currency'{
+                return '$' + value;
+            }
+            when 'Number'{
+                Integer i = Integer.valueOf(value);
+                System.debug('i: ' + i);
+                return String.valueOf(i);
+            }
+            when 'Percent'{
+                return value + '%';
+            }
+            when 'Date'{
+                Date dat = Date.valueOf(value);
+                value = dat.format();
+                //value = value.substring(0, 10);
+                //value = value.replaceAll('-', '/');
+                return value;
+            }
+        }
+        return value;
+    }
+    
+    // Method add by JR, it's based off getCPLWorkitems so much of the logic is the same or similar but pair down to OPE reqs 
+    @AuraEnabled 
+    public static wrapObjData getOPEWorkitems(String opeRequest){
+        wrapApprovalRequest appReq = (wrapApprovalRequest) JSON.deserialize(opeRequest, wrapApprovalRequest.class);
+        wrapObjData opeReturn = new wrapObjData();
+        
+        //Declarations
+        List<String> fieldPosList = new List<String>();
+        List<String> pgfieldsList = new List<String>();
+        List<Id> opeIdsList = appReq.listOfOPEIds;
+        List<wrapObj> opeList = new List<wrapObj>();
+        List<SObject> opeObjList = new List<SObject>();
+        
+        
+        Set<String> metadataFilters = getAccessLevelFilter();
+        Set<String> gpeFields = new Set<String>();
+        Set<String> opeFields = new Set<String>();
+        Set<String> pgIds = new Set<String>();
+        Set<String> quantityLevels = new Set<String>();
+        Set<String> sfProductCategories = new Set<String>();
+        
+        Map<String, Grid_Approval_UI__mdt> fieldMetadataMap = new Map<String, Grid_Approval_UI__mdt>();
+        Map<String, Price_Grid__c>   pgExtIdObjMap = new Map<String, Price_Grid__c>();
+        Map<String, Map<String, Grid_Price_Edit__mdt>> prodCatGridPriceEditMaps = new Map<String, Map<String, Grid_Price_Edit__mdt>>();
+        
+        String gridApprovalUIQuery = '';
+        String gridPriceEditsQuery = '';
+        String ope = 'OPE';
+        String opeObjQuery = '';
+        String pgQuery = '';
+        String position = appReq.isPhone ? 'Mobile_Position__c' : 'Position__c';
+        
+        
+        /* Grid_Approval_UI__mdt processing BEGINS */
+        gridApprovalUIQuery = 'SELECT Id, Data_Type__c, Field_API_Name__c, Field_Label__c, Field_View_Type__c, Mobile_Position__c, Mobile_View_Type__c, ' + 
+            'Position__c, Grid_Product_Category__c, Special_Handling__c  ' + 
+            'FROM Grid_Approval_UI__mdt '  + 
+            'WHERE Access_Level__c IN: metadataFilters ' + 
+            'AND Object_Type__c =: ope ' + 
+            'ORDER BY ' + position;
+        
+        for(Grid_Approval_UI__mdt mdt : Database.query(gridApprovalUIQuery)){
+            if( String.isNotBlank( mdt.Field_API_Name__c )){
+                if(mdt.Special_Handling__c == 'Price_Grid__c'){                     
+                    if(!pgfieldsList.contains(mdt.Field_API_Name__c)){
+                        pgfieldsList.add(mdt.Field_API_Name__c);
+                    }
+                }
+                else{
+                    opeFields.add(mdt.Field_API_Name__c);
+                    fieldMetadataMap.put(mdt.Field_API_Name__c,  mdt);   
+                }                
+            }
+        }
+        System.debug('pgfieldsList: ' + pgfieldsList);
+        /* Grid_Approval_UI__mdt processing ENDS */       
+        
+        /* OPE__c retrieval BEGINS */
+        if(opeFields.size()>0){
+            System.debug('opeFields: ' + opeFields);
+            List<String> fieldList = new List<String>(opeFields); 
+            System.debug('fieldList: ' + fieldList);
+            opeObjQuery += 'Select id, ';
+            if(fieldList != null){opeObjQuery += String.join(new List<String>(fieldList), ', ')+ ',';}            
+            opeObjQuery += ' Price_Grid_External_Id__c';
+            opeObjQuery += ' FROM OPE__c WHERE Id IN :opeIdsList';   
+            
+            System.debug('opeObjQuery: ' + opeObjQuery);
+            for (Sobject sObj : Database.query(opeObjQuery)){
+                opeObjList.add(sObj);
+                pgIds.add((String)sObj.get('Price_Grid_External_Id__c'));
+                quantityLevels.add((String)sObj.get('Quantity_Level__c'));
+                sfProductCategories.add((String)sObj.get('Salesforce_Product_Category__c'));
+            }
+            System.debug('opeObjList: ' + opeObjList);
+            System.debug('pgIds: ' + pgIds);
+            System.debug('quantityLevels: ' + quantityLevels);
+            System.debug('sfProductCategories: ' + sfProductCategories);
+        }  
+        /* OPE__c retrieval ENDS */        
+        
+        /* Grid_Price_Edit__mdt retrieval BEGINS */
+// Can modify query to get Grid_Product_Category__c      
+        gridPriceEditsQuery = 'SELECT Corporate_Minimum_Price__c, Grid_Product_Category__c, Grid_Product_Category__r.Product_Category__c , Gross_Price_Label__c, '+ 
+            'Price_Grid_Approval_Field__c, Price_Grid_RVP_Approval_Field__c, Price_Grid_TM1_Field__c, Price_Grid_TM2_Field__c, Price_Grid_TM3_Approval_Field__c ' +
+            'FROM Grid_Price_Edit__mdt WHERE Gross_Price_Label__c in :quantityLevels AND Grid_Product_Category__r.Product_Category__c  in :sfProductCategories';
+        
+        for(Grid_Price_Edit__mdt gpeMdt : Database.query(gridPriceEditsQuery)){
+            gpeFields.add(gpeMdt.Price_Grid_Approval_Field__c);
+            gpeFields.add(gpeMdt.Price_Grid_RVP_Approval_Field__c);
+            gpeFields.add(gpeMdt.Price_Grid_TM1_Field__c);
+            gpeFields.add(gpeMdt.Price_Grid_TM2_Field__c);
+            gpeFields.add(gpeMdt.Price_Grid_TM3_Approval_Field__c);
+            gpeFields.add(gpeMdt.Corporate_Minimum_Price__c);
+            gpeFields.add(gpeMdt.Grid_Product_Category__c);
+            
+            Map<String, Grid_Price_Edit__mdt> quantityLevelGridPriceEditMap =  new Map<String, Grid_Price_Edit__mdt>();
+            if(prodCatGridPriceEditMaps.containsKey(gpeMdt.Grid_Product_Category__r.Product_Category__c)){
+                quantityLevelGridPriceEditMap = prodCatGridPriceEditMaps.get(gpeMdt.Grid_Product_Category__r.Product_Category__c);                             
+            }
+            quantityLevelGridPriceEditMap.put(gpeMdt.Gross_Price_Label__c, gpeMdt);
+            prodCatGridPriceEditMaps.put(gpeMdt.Grid_Product_Category__r.Product_Category__c, quantityLevelGridPriceEditMap);            
+        }
+        /* Grid_Price_Edit__mdt retrieval ENDS */
+        
+        /* Price_Grid__c retrieval BEGINS */
+        if(pgIds.size()>0){ 
+            pgQuery += 'Select Id, ';
+            if(gpeFields != null && gpeFields.size()  > 0){pgQuery += String.join(new List<String>(gpeFields), ', ')+ ',';}
+            pgQuery += ' Price_Grid_Unique_Key__c';
+            pgQuery += ' FROM Price_Grid__c WHERE Price_Grid_Unique_Key__c IN :pgIds';   
+            System.debug('PG query : ' + pgQuery);
+            for(List<Price_Grid__c> pgList: Database.query(pgQuery)){
+                for(Price_Grid__c pg: pgList){
+                    pgExtIdObjMap.put(pg.Price_Grid_Unique_Key__c, pg);
+                }
+            }
+            System.debug('pgExtIdObjMap: ' + pgExtIdObjMap);
+        }
+        /* Price_Grid__c retrieval ENDS */ 
+        
+        /* field value population for Primary and Secondary data BEGINS */
+        fieldPosList.add('Id');
+        if(opeObjList.size() > 0){
+            for(SObject sObj : opeObjList){
+                wrapObj opeData = new wrapObj();
+                List<String> fieldDataPosList = new List<String>();
+                SObject pg = pgExtIdObjMap.containsKey(sObj.Id) ?  pgExtIdObjMap.get(sObj.Id) : null;
+                System.debug('pg: ' + pg);
+                Map<String, String> SecondaryDataMap = new Map<String,String>();
+                if(fieldMetadataMap != null){
+                    System.debug('fieldMetadataMap: ' + fieldMetadataMap);
+                    for(Grid_Approval_UI__mdt mdt: fieldMetadataMap.values()){
+                        String fieldValue = '';
+                        if(mdt.Special_Handling__c == 'Price_Grid__c' && pg != null){
+                            // mdt.Field_API_Name__c value matches field name to retrieve from Grid_Price_Edit__mdt
+                            String gpeFieldName = mdt.Field_API_Name__c;
+                            System.debug('gpeFieldName: ' + gpeFieldName);
+                            // Field value from Grid_Price_Edit__mdt contains corresponding field name from Price_Grid__c (pg)
+                            // need Product Category and Quantity Level information to pull that match 
+                            OPE__c convertedOPE = (OPE__c)sObj;
+                            String pc = convertedOPE.Salesforce_Product_Category__c;
+                            System.debug('pc: ' + pc);
+                            Map<String, Grid_Price_Edit__mdt> pcQlMdtMap = prodCatGridPriceEditMaps.get(pc);
+                            Grid_Price_Edit__mdt gpe = pcQlMdtMap.get(convertedOPE.Quantity_Level__c);
+                            String pgFieldName = String.valueOf(gpe.get(gpeFieldName));
+                            System.debug('pgFieldName: ' + pgFieldName);
+                            // pg field value is what we need to set fieldValue to.
+                            // 
+                            fieldValue = String.valueOf(pg.get(pgFieldName)); 
+                            System.debug('fieldValue: ' + fieldValue);
+                            //fieldValue = String.valueOf(pg.get(mdt.Field_API_Name__c));
+                        }
+                        else if(mdt.Special_Handling__c == null || mdt.Special_Handling__c == ''){
+                            if(mdt.Field_API_Name__c.containsIgnoreCase('Product__r.')){
+                                fieldValue = String.valueOf(sObj.getSObject('Product__r').get(mdt.Field_API_Name__c.removeStartIgnoreCase('Product__r.')));
+                            }
+                            else{fieldValue = String.valueOf(sObj.get(mdt.Field_API_Name__c));}
+                        }
+                        
+                        if(fieldValue == null){fieldValue = ' ';}
+                        if(mdt.Data_Type__c != null || mdt.Data_Type__c != ''){
+                            if(fieldValue != ' '){
+                                fieldValue = getDataForDataType(mdt.Data_Type__c, fieldValue);
+                            }
+                        }
+                        if(appReq.isPhone){
+                            switch on mdt.Mobile_View_Type__c{
+                                when 'Primary'{
+                                    if(!fieldPosList.contains(mdt.Field_Label__c)){fieldPosList.add(mdt.Field_Label__c);}
+                                    fieldDataPosList.add(fieldValue);
+                                }
+                                when 'Secondary'{
+                                    SecondaryDataMap.put(mdt.Field_Label__c, fieldValue);
+                                }
+                            }
+                        }else{
+                            switch on mdt.Field_View_Type__c{
+                                when 'Primary'{
+                                    if(!fieldPosList.contains(mdt.Field_Label__c)){fieldPosList.add(mdt.Field_Label__c);}
+                                    fieldDataPosList.add(fieldValue);
+                                }
+                                when 'Secondary'{
+                                    SecondaryDataMap.put(mdt.Field_Label__c, fieldValue);
+                                }
+                            }
+                        }
+                    }
+                }
+                opeData.objectId = sObj.Id;
+                opeData.isExpandable = opeData.isSelected = false;
+                opeData.listOfPrimaryData = fieldDataPosList;
+                opeData.listOfSecondaryData = SecondaryDataMap;
+                opeData.pgExternalId = (String) sObj.get('Price_Grid_External_Id__c');
+                System.debug('pgExternalId: ' + opeData.pgExternalId);
+                opeList.add(opeData);                    
+            }
+        }        
+        /* field value population for Primary and Secondary data ENDS */
+        
+        opeReturn.listOfPrimaryFields = fieldPosList;
+        opeReturn.listOfOPEData = opeList;
+        return opeReturn;
+    }
+    
+    @AuraEnabled
+    public static List<wrapObj> processData(String cplData, String actionType){
+        List<wrapObj> cplDataList = (List<wrapObj>)JSON.deserialize(cplData, List<wrapObj>.class);
+        List<wrapObj> selectedCPLDataList = new List<wrapObj>();
+        List<Approval.ProcessWorkitemRequest> pwrItems = new List<Approval.ProcessWorkItemRequest>();
+        Map<Id, Integer> cplIdIndexMap = new Map<Id, Integer>();
+        Integer idx = 0;
+        for(wrapObj cpl: cplDataList){
+            cplIdIndexMap.put(cpl.objectId, idx);
+            if(cpl.isSelected){
+                Approval.ProcessWorkitemRequest pwr = new Approval.ProcessWorkitemRequest();
+                pwr.setWorkitemId(cpl.recordId);
+                pwr.setAction(actionType);
+                pwr.setComments(cpl.comments);
+                pwrItems.add(pwr);
+                selectedCPLDataList.add(cpl);
+            }
+            idx += 1;
+        }
+        
+        if(pwrItems.size()>0){
+            List<Approval.ProcessResult> apprResult = Approval.process(pwrItems, false);
+            Integer index = 0;
+            for(Approval.ProcessResult appr : apprResult){
+                wrapObj cpl = new wrapObj();
+                cpl = selectedCPLDataList.get(index);
+                cpl.isExpandable = false;
+                if(!appr.isSuccess()){
+                    String errMsg = 'Error: ';
+                    for(Database.Error err: appr.getErrors()){ errMsg += err.getMessage(); }
+                    cpl.error = true; cpl.errorMsg = errMsg; index += 1;
+                }else{
+                    cpl.success = cpl.disable = true; cpl.isSelected = false; index += 1;
+                }
+                cplDataList.set(cplIdIndexMap.get(cpl.objectId), cpl);
+            }
+            
+        }
+        System.debug('cplDataList: ' + cplDataList);
+        return cplDataList;
+    } 
+     
+    @AuraEnabled
+    public static List<wrapObj> processOpe(String opeData, String actionType){
+        List<wrapObj> opeDataList = (List<wrapObj>)JSON.deserialize(opeData, List<wrapObj>.class);
+        List<OPE__c> opes = new List<OPE__c>();
+        Set<String> opeIds = new Set<String>();
+        Map<Id, Integer> opeIdIndexMap = new Map<Id, Integer>();
+        Integer index = 0;        
+        String opeQuery = 'Select Id, Approved_Price__c, Approval_Status__c From OPE__c Where Id in :opeIds';
+        String approvalStatus = '';
+        
+        for(wrapObj ope: opeDataList){
+            opeIdIndexMap.put(ope.objectId, index);
+            if(ope.isSelected){
+                opeIds.add(ope.objectId);
+            }
+            index++;
+        }        
+        opes = Database.query(opeQuery);
+        System.debug('opeQuery results: ' + opes);
+        
+        if(opes.size() > 0){
+            if(actionType == 'ApproveAndRegister'){
+                // Call MobilePricingHelper_OPE
+                MobilePricingHelper_OPE.updateResponse UR = new MobilePricingHelper_OPE.updateResponse();
+                ur = MobilePricingHelper_OPE.updateRecord_OPE(new List<string>(opeIds),'', '0', actionType);
+                
+                
+                if(ur != null){
+                    Boolean isSuccess = ur.isSuccess;
+                    
+                    for(MobilePricingHelper_OPE.updateReturnResponse urr : ur.URR){
+                        wrapObj ope = opeDataList.get(opeIdIndexMap.get(urr.objectId));
+                        if(isSuccess){
+                            ope.success = ope.disable = true; 
+                            ope.isSelected = false; 
+                        }
+                        else{
+                            String errMsg = 'Error: ';
+                            errMsg += ur.errorMsg;
+                            ope.error = true; 
+                            ope.errorMsg = errMsg;                          
+                        }
+                        System.debug('updated wrap ope: ' + ope);
+                        opeDataList.set(opeIdIndexMap.get(ope.objectId), ope);
+                    }
+                }
+            }
+            else {
+                
+                if(actionType == 'POF'){approvalStatus = 'Approved in Salesforce';}
+                else if(actionType == 'Submit'){approvalStatus = 'Submitted for Approval';}
+                
+                for(OPE__c ope : opes){
+                    // Set approval status to approved in salesforce - change to get text based on label? 
+                    ope.Approval_Status__c = approvalStatus;
+                }
+                System.debug('opes  w/ updated fields: ' + opes);
+                
+                Database.SaveResult[] srs = Database.update(opes, false);
+                System.debug('Database.SaveResults: ' + srs);
+                
+                for(Integer i = 0; i < srs.size(); i++){                
+                    wrapObj ope = opeDataList.get(opeIdIndexMap.get(opes[i].Id));
+                    if(srs[i].isSuccess()){
+                        ope.success = ope.disable = true; 
+                        ope.isSelected = false; 
+                    }
+                    else{
+                        String errMsg = 'Error: ';
+                        for(Database.Error err: srs[i].getErrors()){ errMsg += err.getMessage(); }
+                        ope.error = true; 
+                        ope.errorMsg = errMsg;                          
+                    }
+                    System.debug('updated wrap ope: ' + ope);
+                    opeDataList.set(opeIdIndexMap.get(ope.objectId), ope);
+                }                
+            }            
+        }
+        System.debug('updated opeDataList: ' + opeDataList);       
+        return opeDataList;        
+    }
+    
+    public class wrapApprovalRequest{        
+        @AuraEnabled public String name;
+        @AuraEnabled public Id id;
+        @AuraEnabled public Id accountId;
+        @AuraEnabled public Id objectId;
+        @AuraEnabled public String accName;
+        @AuraEnabled public Id submittedById;
+        @AuraEnabled public String submittedDate;
+        @AuraEnabled public String objectType;
+        @AuraEnabled public String objectTypeAPI;
+        @AuraEnabled public String submittedBy;
+        @AuraEnabled public String status; 
+        @AuraEnabled public String city;
+        @AuraEnabled public String state;
+        @AuraEnabled public String customerGroup;
+        @AuraEnabled public Double r365Sales;
+        @AuraEnabled public Boolean DMUser = false;
+        @AuraEnabled public Boolean RVPUser = false;
+        @AuraEnabled public Boolean TMUser = false;
+        @AuraEnabled public Boolean CPL = false;
+        @AuraEnabled public Boolean isPhone = false;
+        @AuraEnabled public Map<String,List<Id>> listOfCPLIds = new Map<String, List<Id>>(); // cpl object api name and id - input
+        @AuraEnabled public List<Id> listOfOPEIds = new List<Id>(); // ope object api name and id - input
+        @AuraEnabled public Map<Id, Id> cplIdWIIdMap = new Map<Id, Id>(); // CPL Id and Work Item Id Map
+        @AuraEnabled public Map<Id, String> cplIdCommentsMap = new Map<Id, String>(); // CPL Id and Comments Map
+    }
+    public class wrapApproval{
+        @AuraEnabled public List<wrapApprovalRequest> appReqList;
+        @AuraEnabled public List<String> statusList;
+        @AuraEnabled public List<String> objectList;
+        public wrapApproval(){
+            appReqList = new List<wrapApprovalRequest>();    
+            statusList = new List<String>();
+            objectList = new List<String>();
+        }
+    }
+    
+    // JR renamed wrapCPL => wrapObj and updated references
+    public class wrapObj{
+        @AuraEnabled public Id recordId; // Approval request record Id
+        @AuraEnabled public Id objectId; // cpl Id 
+        @AuraEnabled public String gridProdCatId; // Grid Product Category Id 
+        @AuraEnabled public Integer sortIndex;
+        @AuraEnabled public Boolean isExpandable = false;
+        @AuraEnabled public Boolean isSelected = false;
+        @AuraEnabled public Boolean disable = false;
+        @AuraEnabled public Boolean error = false;
+        @AuraEnabled public Boolean success = false;
+        @AuraEnabled public Double approvedPrice;        
+        @AuraEnabled public String errorMsg = '';
+        @AuraEnabled public String action = ''; // Approve or Decline
+        @AuraEnabled public String pgExternalId = ''; // Price Grid Unique Key
+        @AuraEnabled public String productCategory = ''; // Product Category 
+        @AuraEnabled public String comments = ''; // comments
+        @AuraEnabled public String previousComments = ''; // previous comments
+        @AuraEnabled public Boolean showPreviousComments = false; // show previous comments
+        @AuraEnabled public List<String> listOfPrimaryData; // primary field data
+        @AuraEnabled public Map<String,String> listOfSecondaryData; // secondary field label and data
+        
+        public wrapObj(){
+            listOfPrimaryData = new List<String>();
+            listOfSecondaryData = new Map<String, String>();
+        }
+    }
+    
+    // JR renamed wrapCPLData => wrapObjData and updated references
+    public class wrapObjData{    // return type
+        @AuraEnabled public List<String> listOfPrimaryFields; // primary field label
+        @AuraEnabled public List<String> productCategories; // Product Category List
+        @AuraEnabled public List<wrapObj> listOfCPLData;
+        @AuraEnabled public List<wrapObj> listOfOPEData;
+        @AuraEnabled public String sortOrder;
+        @AuraEnabled public String sortOrderField;
+        public wrapObjData(){
+            listOfCPLData = new List<wrapObj>();
+            listOfPrimaryFields = new List<String>(); 
+            productCategories = new List<String>();
+        }
+    }
+    
+    
+    
+}
