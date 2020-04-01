@@ -1,0 +1,146 @@
+COMPONENT
+<aura:component>
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}" />
+    <!--
+    <aura:attribute name="items" type="List" />
+    <aura:attribute name="element" type="String" />
+ 	-->
+    <aura:attribute name="CPLdata" type="Object" /> 
+    <aura:attribute name="MPcheckObj" type="Object" />
+    <aura:attribute name="condition" type="Boolean" />
+    <!--<aura:attribute name="setIsWithdrawPrice" type="Boolean"/>-->
+    <!--
+    <aura:attribute name="conditionType" type="string" default="notcontains" description="not contains means : return false if not contains"/>
+    <aura:attribute name="otherCondition" type="boolean" default="false" description="not contains means : return false if not contains"/>
+ 	-->    
+    <aura:if isTrue="{!v.condition}">
+        {!v.body}        
+    </aura:if>
+</aura:component>
+
+CONTROLLER
+({
+	doInit: function(component, event, helper) {
+        /******** PREVIOUS CODE ********
+        var getList = component.get('v.items'); 
+        var getElement = component.get('v.element');
+        var getElementIndex = getList.indexOf(getElement);
+       
+       //if getElementIndex is not equal to -1 it's means list contains this element. 
+       //if getElementIndex is equal to -1 it's means list not contains this element. 
+        if( component.get("v.conditionType") == 'contains'){            
+            if( getElementIndex == -1 ){
+                component.set('v.condition',false); 
+            }else{
+                component.set('v.condition',true); 
+            }
+        }else{
+            if( getElementIndex == -1 ){
+                component.set('v.condition',true); 
+            }else{
+                component.set('v.condition',false);
+            }
+        }
+		******** PREVIOUS CODE ********/
+        helper.checkConditionHelper( component, event, helper );
+    },
+})
+
+HELPER
+({
+    checkConditionHelper: function(component, event, helper) {        
+        var _chkObj = component.get("v.MPcheckObj");
+        var _dataRow = component.get("v.CPLdata");
+        console.log('MVPL');
+        console.log( _chkObj );
+        console.log( component.get("v.CPLdata") );
+        console.log( _dataRow );
+        console.log('MVPL');
+        var DMCHECKSET = _chkObj.TMNUmberSet; 
+        var noDisplay = false;
+        //console.log('$$$$$TM-Num$$ - ' + _dataRow.CPL_Product_Territory__r.Sales_Group_TM__c);
+        var _element = _dataRow.hasOwnProperty( 'CPL_Product_Territory__r' ) ? _dataRow.CPL_Product_Territory__r.Sales_Group_TM__c : '';
+        console.log( ':::_element:::' + _element );
+        var _getElementIndex = DMCHECKSET.indexOf( _element );
+        if( _getElementIndex == -1 ){
+            component.set('v.condition',false); 
+            noDisplay = true;            
+        }else{            
+            var _PTCheck = _chkObj.Product_TypeSet;					
+            var _elementPT = _dataRow.hasOwnProperty( 'Product__r') ? _dataRow.Product__r.Brand_Description__c : '';
+            var _getElementIndexPT = _PTCheck.indexOf( _elementPT );
+            if( _getElementIndexPT != -1 ){
+                component.set('v.condition',false); 
+                noDisplay = true;    
+            }else{
+                //BrandCheck
+                var _BSCheck = _chkObj.BrandSet;
+                var _elementBS = _dataRow.hasOwnProperty( 'Product__r') ? _dataRow.Product__r.Brand_Code__c : '';
+                var _getElementIndexBS = _BSCheck.indexOf( _elementBS );
+                if( _getElementIndexBS != -1 ){
+                    component.set('v.condition',false);
+                    noDisplay = true;    
+                }else{
+                    //Fiber Brand Check
+                    var _FBCheck = _chkObj.Fiber_BrandSet;
+                    var _elementFB = _dataRow.hasOwnProperty( 'Product__r') ? _dataRow.Product__r.Fiber_Type__c : '';
+                    var _getElementIndexFB = _FBCheck.indexOf( _elementFB );
+                    if( _getElementIndexFB != -1 ){
+                        component.set('v.condition',false); 
+                        noDisplay = true;    
+                    }else{
+                        component.set('v.condition',true); 
+                    }
+                }
+            }
+        }
+        
+                        
+        if( !noDisplay && _dataRow.hasOwnProperty( 'Approval_Status__c' ) && _dataRow.hasOwnProperty( 'Edited_TMNum__c' ) && _dataRow.Approval_Status__c == 'Waiting for Approval' ){
+            var _TMNumbs = _dataRow.Edited_TMNum__c.split(';');
+            if( _TMNumbs && _TMNumbs.length > 0 ){                
+                for( var i=0; i < _TMNumbs.length; i++ ){
+                    /*if( DMCHECKSET.indexOf( _TMNumbs[i] ) == -1 ){
+                        component.set("v.setIsWithdrawPrice",false);
+                    }else{
+                        component.set("v.setIsWithdrawPrice",true);
+                    }*/
+            		_dataRow.isWithdrawPrice = DMCHECKSET.includes( _TMNumbs[i] );        
+                }
+            }else{
+                _dataRow.isWithdrawPrice = false;
+            }
+            
+        }else{                        
+            _dataRow.isWithdrawPrice = false;
+        }
+        
+        /*if( _dataRow.hasOwnProperty( 'Approval_Status__c' ) && _dataRow.hasOwnProperty( 'Edited_TMNum__c' ) && _dataRow.Approval_Status__c == 'Waiting for Approval' ){
+            var _TMNumbs = _dataRow.Edited_TMNum__c.split(';');          	
+            if( _TMNumbs && _TMNumbs.length > 0 ){                
+                for( var i=0; i < _TMNumbs.length; i++ ){
+                    if( DMCHECKSET.indexOf( _TMNumbs[i] ) == -1 ){
+                        component.set("v.setIsWithdrawPrice",false);
+                    }else{
+                        component.set("v.setIsWithdrawPrice",true);
+                    }
+                }
+            }else{
+                component.set("v.setIsWithdrawPrice",false);
+            }
+        }else{
+            component.set("v.setIsWithdrawPrice",false);
+        }*/
+        
+        if( !noDisplay && _dataRow.hasOwnProperty( 'Start_Date__c' ) && _dataRow.hasOwnProperty( 'Price_Increase_Flag__c' ) ){
+        	var today = $A.localizationService.formatDate(new Date(), "YYYY-MM-DD");     
+            var _startDate = _dataRow.Start_Date__c;
+            if( _startDate && _startDate > today && _dataRow.Price_Increase_Flag__c ){
+                component.set('v.condition',false); 
+            }else{
+                component.set('v.condition',true);
+            }
+        }
+    },
+})
+
