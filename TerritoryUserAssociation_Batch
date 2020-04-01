@@ -1,0 +1,269 @@
+/**************************************************************************
+Name : TerritoryUserAssociation_Batch 
+===========================================================================
+Purpose :           
+========================================================================== =
+History:
+--------
+VERSION    AUTHOR            DATE           DETAIL          DESCRIPTION
+1.0        Nagendra       31/01/2019         Created          
+
+***************************************************************************/
+global class TerritoryUserAssociation_Batch implements Database.Batchable<sObject>,Schedulable {
+    
+    private set<id> territoryIds = new set<id>();
+    public TerritoryUserAssociation_Batch (set<id> terrList) {
+        territoryIds = terrList;
+    }
+    
+    global Database.QueryLocator start(Database.BatchableContext bc) {
+        String query;
+        List<Batch_Query__mdt> batchSettingList = new List<Batch_Query__mdt>( [ SELECT id,Class_Name__c,Batch_Size__c,Query_String__c FROM Batch_Query__mdt WHERE Class_Name__c = 'TerritoryUserAssociation_Batch' LIMIT 1 ] );
+        if(batchSettingList.size()>0){
+            if(  batchSettingList[0].Query_String__c != null ){
+                query = batchSettingList[0].Query_String__c;
+            }
+        }else{
+            query='Select User__c,CAMS_Employee_num__c,Role__c,isDeleted,Region_Code__c,Territory__c,Sector_Code__c,Territory_Code__c from Territory_User__c where RecordType.Name = \'Residential\' AND User__c != null AND Role__c !=null ORDER BY Territory_Code__c';       
+        }
+        
+        if( territoryIds != null && !territoryIds.isEmpty() ){ //Added null check as it was failing in Prod - MB - Bug 85367 - 12/20/19
+            if( test.isRunningTest() ){
+                query='Select User__c,CAMS_Employee_num__c,Role__c,isDeleted,Region_Code__c,Territory__c,Sector_Code__c,Territory_Code__c from Territory_User__c where Territory__c in :territoryIds and RecordType.Name = \'Residential\' AND User__c != null AND Role__c !=null ORDER BY Territory_Code__c';  
+            }
+            else{ query='Select User__c,CAMS_Employee_num__c,Role__c,isDeleted,Region_Code__c,Territory__c,Sector_Code__c,Territory_Code__c from Territory_User__c where id in :territoryIds and RecordType.Name = \'Residential\' AND User__c != null AND Role__c !=null ORDER BY Territory_Code__c';  }
+        }  
+        return Database.getQueryLocator(query);
+    }
+    global void execute(Database.BatchableContext BC, list<Territory_User__c> scope) {
+        
+        Map<Id, Set<Id>> terr2UserIdMap = new Map<Id, Set<Id>>();
+        Map<String,Id> roleCodeIdMap = new Map<String, Id>();
+        Map<Id,String> terr2IdRoleCodeMap = new Map<Id, String>();
+        
+        List<UserTerritory2Association> usrTerr2AssociationList = new List<UserTerritory2Association> ();
+        
+        List<UserTerritory2Association> usrTerr2AssociationList_Delete = new List<UserTerritory2Association> ();
+        List<Id> userTerr2AssociationIdList = new  List<Id>();
+        
+        //Set<Id> tUserIdSet= new Set<Id>();
+        Map<String,Set<Id>> roleCodeUserIdsMap= new Map<String,Set<Id>>();
+        Set<Id> userIdSet= new Set<Id>();
+        Set<Id> territoryIdSet= new Set<Id>();
+        List<Territory_User__c> tUserScope = new List<Territory_User__c>();
+        
+        Set<String> roleSet = new Set<String>();
+        Map<Id, User> userMap = new Map<Id, User>();
+        Map<Id, User> existingUserRoleMap = new Map<Id, User>();
+        Map<String, Id> roleIdMap = new Map<String, Id>();
+        Set<String> usersMissing = new Set<String>();
+        Map<String, Id> userMissingMap = new Map<String, Id>(); 
+        
+        //Map<Id, String> UserId2RoleMap = new Map<Id, String>();
+        //Set<Id> territoryIds = new Set<Id>();
+        /*for(Territory_User__c tUser:scope){
+if(tUser.Territory__c !=null){
+territoryIds.add(tUser.Territory__c);
+}
+}*/
+        //if(territoryIds.size()>0){
+        tUserScope = [SELECT User__c,Role__c,CAMS_Employee_num__c, isDeleted,Region_Code__c,Territory__c,Sector_Code__c, Territory_Code__c 
+                      FROM Territory_User__c 
+                      WHERE Territory__c != null AND User__c != null AND Role__c !=null AND RecordType.Name = 'Residential'];
+        //}
+        for(Territory_User__c tUser:tUserScope){
+            String roleCode = getRoleCode(tUser);
+            /*Start of Code - MB - US 78821 - 9/16/19 - To Update UserRole
+if(!tUser.isDeleted){
+if(roleCode != ''){
+roleSet.add(roleCode);
+}
+if(tUser.CAMS_Employee_num__c != null){
+usersMissing.add(tUser.CAMS_Employee_num__c);
+}
+}
+//End of Code - MB - US 78821 - 9/16/19*/
+            
+            //UserId2RoleMap.put( tUser.User__c, tUser.Role__c );
+            
+            if(roleCode !=null && roleCode !=''){
+                if(roleCodeUserIdsMap.containsKey(roleCode)){
+                    roleCodeUserIdsMap.get(roleCode).add(tUser.User__c);
+                }else{
+                    Set<Id> userIds = new Set<Id>();
+                    userIds.add(tUser.User__c);
+                    roleCodeUserIdsMap.put(roleCode,userIds);
+                }
+            }
+        }
+        
+        /*Start of Code - MB - US 78821 - 9/16/19 - To Update UserRole
+// Get Missing users 
+if(usersMissing.size()>0){
+for( User eachUser : [ SELECT id, CAMS_Employee_Number__c, userRoleId
+FROM User 
+WHERE CAMS_Employee_Number__c IN : usersMissing ] ){
+userMissingMap.put(eachUser.CAMS_Employee_Number__c,eachUser.id );
+existingUserRoleMap.put(eachUser.Id, eachUser);
+}
+System.debug('userMissingMap: ' + userMissingMap);
+if(roleSet.size()>0){
+for(List<UserRole> userRoleList : [SELECT Id, DeveloperName from UserRole where DeveloperName IN: roleSet]){
+for(UserRole userRole: userRoleList){
+roleIdMap.put(userRole.DeveloperName, userRole.Id);
+}
+}
+}
+for(Territory_User__c tu :tUserScope){
+String roleCode = getRoleCode(tu);
+if(tu.Territory_Code__c != null && roleCode != '' && roleIdMap.containsKey(roleCode)){
+if(userMissingMap.containsKey(tu.CAMS_Employee_Num__c)){
+User usr = new User();
+usr.Id = userMissingMap.get(tu.CAMS_Employee_Num__c);
+usr.UserRoleId = roleIdMap.get(roleCode);
+User existingRole = existingUserRoleMap.get(usr.Id);
+if(existingRole.UserRoleId != null && existingRole.UserRoleId != usr.UserRoleId){
+System.debug('usr.Id: ' + usr.Id);
+userMap.put(usr.Id, usr);
+}else if(existingRole.UserRoleId == null){
+userMap.put(usr.Id, usr);
+}
+System.debug('usr: ' + usr);
+}
+}
+}
+}
+
+if(userMap.size()>0){
+List<User> updUserList = new List<User>(userMap.values());
+List<Database.SaveResult> results = Database.update(updUserList, false);
+}
+//End of Code - MB - US 78821 - 9/16/19*/
+        
+        if(roleCodeUserIdsMap.keyset().size()>0){
+            for(Territory2 terr: [SELECT Id, DeveloperName FROM Territory2 where DeveloperName in : roleCodeUserIdsMap.keyset()]){
+                roleCodeIdMap.put(terr.DeveloperName,terr.Id);
+                terr2IdRoleCodeMap.put(terr.Id,terr.DeveloperName);
+            } 
+        }
+        //Added condition to fetch users role not in Specialist and ROM - MB - US M360E-5 - 3/16/2020
+        for(UserTerritory2Association uT2Association: [SELECT Id,Territory2Id, UserId FROM UserTerritory2Association 
+                                                       WHERE RoleInTerritory2 NOT IN ('Specialist', 'Regional Operational Manager') AND Territory2Id in :terr2IdRoleCodeMap.keyset()]){
+            if(terr2UserIdMap.containskey(uT2Association.Territory2Id))
+                terr2UserIdMap.get(uT2Association.Territory2Id).add(uT2Association.UserId);
+            else{
+                Set<Id> userIds = new Set<Id>();
+                userIds.add(uT2Association.UserId);
+                terr2UserIdMap.put(uT2Association.Territory2Id,userIds);
+            }
+        }
+        
+        for(String  roleCode:roleCodeUserIdsMap.keyset()){            
+            Id terr2Id = (roleCodeIdMap.containsKey(roleCode)) ? roleCodeIdMap.get(roleCode) : null;
+            if(terr2Id !=null ){
+                if(!terr2UserIdMap.containskey(terr2Id)){//if no association record found 
+                    for(Id tUserId: roleCodeUserIdsMap.get(roleCode)){
+                        UserTerritory2Association usrTerr2Association = new UserTerritory2Association();
+                        usrTerr2Association.Territory2Id = terr2Id;
+                        usrTerr2Association.UserId = tUserId;
+                        //usrTerr2Association.RoleInTerritory2 = UserId2RoleMap.get( tUserId );
+                        usrTerr2AssociationList.add(usrTerr2Association);   
+                    }                       
+                }else{
+                    for(Id tUserId: roleCodeUserIdsMap.get(roleCode)){
+                        if(!terr2UserIdMap.get(terr2Id).contains(tUserId)){
+                            UserTerritory2Association usrTerr2Association = new UserTerritory2Association();
+                            usrTerr2Association.Territory2Id = terr2Id;
+                            usrTerr2Association.UserId = tUserId;
+                            //usrTerr2Association.RoleInTerritory2 = UserId2RoleMap.get( tUserId );
+                            usrTerr2AssociationList.add(usrTerr2Association);    
+                        }
+                    } 
+                } 
+            }
+        }
+        //Deletion logic
+        for(Id  terr2Id:terr2UserIdMap.keyset()){
+            String roleCode = terr2IdRoleCodeMap.containskey(terr2Id) ? terr2IdRoleCodeMap.get(terr2Id) : null;
+            if(roleCode !=null && roleCode != '' /*&& roleCodeUserIdsMap.containskey(roleCode)*/){
+                if(!roleCodeUserIdsMap.containskey(roleCode)){
+                    for(Id terr2UserId:terr2UserIdMap.get(terr2Id)){
+                        userIdSet.add(terr2UserId);
+                        territoryIdSet.add(terr2Id);
+                    }
+                }else{
+                    for(Id terr2UserId:terr2UserIdMap.get(terr2Id)){
+                        if(!roleCodeUserIdsMap.get(roleCode).contains(terr2UserId)){
+                            userIdSet.add(terr2UserId);
+                            territoryIdSet.add(terr2Id);
+                        }
+                    }
+                }
+                
+            }
+        }
+        
+        if(usrTerr2AssociationList.size()>0){
+            system.debug('list of record'+usrTerr2AssociationList);
+            List<Database.saveResult> results = Database.insert(usrTerr2AssociationList);
+            
+            UtilityCls.createDMLexceptionlog(usrTerr2AssociationList,results,'TerritoryUserAssociation_Batch','TerritoryUserAssociation_Batch');
+        }
+        
+        //List<String> rolesToDeleteList = label.RolesNotToDelete.deleteWhitespace().split( ';' );
+        
+        //Delete UserTerritory2Association records
+        for(List<UserTerritory2Association> usrTerr2List : [SELECT Id, Territory2Id, UserId from UserTerritory2Association 
+                                                            WHERE UserId IN: userIdSet 
+                                                            AND Territory2Id IN: territoryIdSet ]){
+                                                                
+                                                                for(UserTerritory2Association usrTerr2: usrTerr2List){
+                                                                    userTerr2AssociationIdList.add(usrTerr2.id);
+                                                                    usrTerr2AssociationList_Delete.add(usrTerr2);
+                                                                }
+                                                            }
+        if(usrTerr2AssociationList_Delete.size()>0 ){
+            List<Database.DeleteResult> results = Database.delete(userTerr2AssociationIdList);
+            UtilityCls.createDeleteDMLexceptionlog(usrTerr2AssociationList_Delete,userTerr2AssociationIdList, results,'TerritoryUserAssociation_Batch','TerritoryUserAssociation_Batch');
+        }  
+    }
+    
+    public String getRoleCode(Territory_User__c tUser){
+        String roleCode = '';
+        switch on tUser.Role__c {
+            when 'Territory Manager' {
+                roleCode = 'D' + tUser.Territory_Code__c + '_TM';
+            }
+            when 'District Manager' {
+                roleCode = 'D' + tUser.Territory_Code__c;
+            }
+            when 'Business Development Manager' {
+                String regionCode = tUser.Region_Code__c;
+                if(tUser.Region_Code__c !=null){
+                    roleCode = regionCode.startsWith('R') ? tUser.Region_Code__c : 'R' + tUser.Region_Code__c;
+                }
+            }
+            when 'Regional Vice President' {
+                String regionCode = tUser.Region_Code__c;
+                if(tUser.Region_Code__c !=null){
+                    roleCode = regionCode.startsWith('R') ? tUser.Region_Code__c : 'R' + tUser.Region_Code__c;
+                }
+            }
+            when 'Senior Vice President' {
+                String sectorCode = tUser.Sector_Code__c;
+                if(tUser.Sector_Code__c !=null){
+                    roleCode = sectorCode.startsWith('S') ? tUser.Sector_Code__c : 'S' + tUser.Sector_Code__c;
+                }
+            }
+        }
+        return roleCode;
+    }
+    
+    global void finish(Database.BatchableContext BC){
+        
+        
+    }
+    global void execute(SchedulableContext SC){
+        Database.executeBatch(new TerritoryUserAssociation_Batch(null), 200);
+    }
+}
