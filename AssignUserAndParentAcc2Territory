@@ -1,0 +1,28 @@
+Public class AssignUserAndParentAcc2Territory{
+    Public Static String AssignUser2TerritoryMethod( String accId ){
+        
+        List<Account> accList = [ SELECT id,Territory__r.Territory_Code__c,ParentID FROM Account WHERE Id =: accId ];
+        String terrName = 'D'+accList[0].Territory__r.Territory_Code__c+'_TM';
+        List<Territory2> terrList = [SELECT id,DeveloperName FROM Territory2 WHERE DeveloperName =: terrName ];
+        
+        //Assigning User 
+        UserTerritory2Association UserTerritory2AssociationObj = new UserTerritory2Association();
+        UserTerritory2AssociationObj.Territory2Id = terrList[0].id;
+        UserTerritory2AssociationObj.UserId = userInfo.getUserId();
+        UserTerritory2AssociationObj.RoleInTerritory2 = [ SELECT id,userRoleId FROM User WHERE id =: userInfo.getUserId() ].userRoleId;
+        insert UserTerritory2AssociationObj;
+        
+        //Assigning Account
+        ObjectTerritory2Association territoryObject = new ObjectTerritory2Association();
+        territoryObject.Territory2Id = terrList[0].id;
+        territoryObject.objectId =  accList[0].ParentId;         
+        territoryObject.AssociationCause = 'Territory2Manual';  
+        insert territoryObject;
+        
+        System.debug( 'UserTerritory2AssociationObj --> '+UserTerritory2AssociationObj );
+        System.debug( 'territoryObject --> '+territoryObject ); 
+        
+        return accList[0].ParentId; 
+        
+    }/* End of method */
+}
