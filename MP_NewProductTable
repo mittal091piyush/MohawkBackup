@@ -1,0 +1,463 @@
+COMPONENT
+<!-- c:MP_NewProductTable -->
+<aura:component extends="c:Grid_Base" implements="flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId,force:lightningQuickAction" access="global"
+                controller="MP_NewProductTable_cc">
+    <!-- Attributes -->
+    <aura:attribute name="ProductCategory" type="String"/>
+    <aura:attribute name="productCategoryName" type="String"/>
+    <aura:attribute name="filteredData" type="List" />    
+    <aura:attribute name="allData" type="Object" />
+    <aura:attribute name="showTable" type="Boolean" default="false" />
+    <aura:attribute type="Integer" name="pageNumber" default="1" />
+    <aura:attribute type="Integer" name="maxPage" default="1" />
+    <aura:attribute type="Integer" name="pageSize" default="10" />
+    <aura:attribute name="listOfData" type="Map" default="{}"/>
+    <aura:attribute name="accountId" type="Id" />
+    <aura:attribute name="showAddProduct" type="Boolean" />
+    <aura:attribute name="allPriceGridIdsPerPage" type="List" />
+    <aura:attribute name="cplCreatePriceGridIds" type="List" default="[]" />
+    <aura:attribute name="viewAllData" type="Map" default="{}"/>
+    <aura:attribute name="arrowDirection" type="string" default="arrowup" description="Use for change arrow sign direction on header based on click"/>
+    <aura:attribute name="currentIndex" type="Integer" />    
+    <aura:attribute name="gridType" type="String" />
+    <aura:attribute name="nonCPLProd" type="List" />    
+    <aura:attribute name="cplProds" type="List" />    
+    <!-- Attributes -->
+   
+    <!-- Handler -->
+    <aura:handler name="init" value="{!this}" action="{!c.doInIt}" />
+    <aura:handler name="change" value="{!v.pageNumber}" action="{!c.renderPage}" />    
+    <!--aura handler with waiting and donewaiting events-->
+    <aura:handler event="aura:waiting" action="{!c.showSpinner}"/>
+    <aura:handler event="aura:doneWaiting" action="{!c.hideSpinner}"/>
+    <!-- Handler -->
+    
+   <!--component attributs -->
+    <aura:attribute name="spinner" type="boolean" default="FALSE"/>
+    
+    <aura:method name="closeAddProduct" action="{!c.closeAddProduct}" access="public" />
+     
+    
+   <!--loading spinner start-->
+    <aura:if isTrue="{!v.spinner}">
+        <div aura:id="spinnerId" class="slds-spinner_container">
+            <div class="slds-spinner--brand  slds-spinner slds-spinner--medium slds-is-relative" role="alert">
+                <span class="slds-assistive-text">Loading...</span>
+                <div class="slds-spinner__dot-a"></div>
+                <div class="slds-spinner__dot-b"></div>
+            </div>
+        </div>
+    </aura:if>
+    <!-- HEADER START -->
+    <!-- 
+    <div class="slds-page-header">
+        <div class="slds-grid">
+            <div class="slds-col slds-has-flexi-truncate">
+                <div class="slds-media slds-no-space slds-grow">
+                    <div class="slds-media__figure">
+                        <span class="slds-icon_container slds-icon-standard-account" title="Customer Price List">
+                            <lightning:icon iconName="standard:contract" size="{!if($Browser.formFactor != 'DESKTOP','large','')}"/>
+                        </span>
+                    </div>
+                    <div class="slds-media__body">
+                        <nav>
+                            <ol class="slds-breadcrumb slds-line-height_reset">
+                                <li class="slds-breadcrumb__item slds-truncate headerTitle">
+                                    <span>{!v.gridType == 'Merchandizing_Vehicle_Price_List' ? v.productName + ' Price List':'Customer Price List'}</span>
+                                </li>
+                            </ol>
+                        </nav>
+                        <h1 class="slds-page-header__title slds-m-right_small slds-align-middle slds-truncate headerSubTitle" title="{!v.viewAllData.account.Name}">{!v.viewAllData.account.Name} ({!v.viewAllData.account.CAMS_Account_number__c})</h1>
+                    </div>
+                </div>
+            </div>
+            <div class="slds-col slds-no-flex slds-grid slds-align-top">                                                
+               
+                <lightning:button label="Add Product To Price List" variant="brand" onclick="{!c.closeAddProduct}"/>
+                <lightning:button label="Cancel" onclick="{!c.Cancel}"/>
+               
+            </div>
+        </div>                
+    </div>
+    -->
+    <!-- HEADER ENDS -->
+     <aura:if isTrue="{! and ( !v.spinner , !v.showTable )}">
+          <div class="{! 'slds-p-vertical--xx-large slds-align--absolute-center slds-grid--vertical slds-text-align--center slds-text-color--weak ' + (v.isPhone ? 'slds-m-top--xx-small' : 'slds-m-top--large')}"
+                     data-aura-rendered-by="1301:0" style="{! $Browser.isPhone ? 'padding-top: 0px' : ''}">
+            <div class="{! 'noResultsTitle slds-p-bottom--large ' + ($Browser.isPhone ? 'slds-text-heading_small' : 'slds-text-heading--large')}"> No Results</div>
+         </div>
+    </aura:if>
+    <aura:if isTrue="{!v.showTable}" >        
+        <div class="slds-grid slds-wrap slds-m-vertical_x-small">
+            <div class="slds-col slds-size_1-of-2">
+                <div class="slds-float_left">
+                    <aura:if isTrue="{!$Browser.isPhone == false}">
+                        <c:dataPagination currentPageNumber="{!v.pageNumber}"
+                                          maxPageNumber="{!v.maxPage}" />
+                    </aura:if>
+                </div>
+            </div>
+            <div class="slds-col slds-size_1-of-2">
+                <div class="slds-float_right">
+                    <input type="text" class="slds-input slds-combobox__input" placeholder="Search Product" onkeyup="{! c.handleonKeyUpSearch }" onblur="{!c.handleOnBlur}"/>    
+                </div>
+            </div>            
+            <div class="slds-col slds-size_1-of-1 slds-m-vertical_x-small">
+                <div class="tableScroll">
+                    <table class="slds-table slds-table_striped slds-table_bordered slds-table_col-bordered slds-no-row-hover slds-max-medium-table_stacked-horizontal">
+                        <thead>
+                            <tr>
+                                <th class="slds-text-align_center" style="{!$Browser.isPhone == false ? 'width:10px;' : '' }" scope="col">                    
+                                    <ui:inputCheckbox aura:id="checkbox" label="" change="{!c.onCheck}"/>  
+                                </th>
+                                <aura:iteration items="{!v.allData.colList}" var="item" indexVar="index" >
+                                    <th scope="col" class="{!if(item.Header_Justification__c == 'center',
+                                                           'slds-text-align_center',if(item.Header_Justification__c == 'right',
+                                                           'slds-text-align_right','slds-text-align_left' ))}"
+                                        onclick="{!c.sorting}" id="{!index}">                                                                       
+                                <!--   <aura:if isTrue="{! if( v.arrowDirection == 'arrowdown', true, false) }"> -->                                       
+                                       <aura:if isTrue="{! and( v.currentIndex == index, v.arrowDirection == 'arrowdown') }">
+                                       	<lightning:icon iconName="utility:arrowdown" size="xx-small"/>
+                                       </aura:if>                                       
+                                 <!--   </aura:if>  -->
+                                <!--	<aura:if isTrue="{! v.arrowDirection != 'arrowdown'  }"> -->                                       
+                                        <aura:if isTrue="{! and(v.currentIndex == index, v.arrowDirection != 'arrowdown') }">                                            
+                                        	<lightning:icon iconName="utility:arrowup" size="xx-small"/>
+                                        </aura:if>    
+                                  <!--  </aura:if> -->                      
+                                        <span class="slds-truncate" aura:id="colName" >{!item.Field_Label__c}</span>                                        
+                                    </th>
+                                </aura:iteration>
+                            </tr>
+                        </thead>                        
+                        <tbody>
+                            <aura:iteration items="{!v.filteredData}" var="item"  >
+                                <tr aria-selected="false" class="slds-hint-parent">                                    
+                                    <td class="slds-text-align_right" role="gridcell" data-label="Select">
+                                        <ui:inputCheckbox aura:id="checkbox1" label="" name="{!item.recId}"  value="{!item.Sel}" change="{!c.onEachCheck}" />  
+                                    </td>                                                    
+                                    <aura:iteration items="{!item.dataValList}" var="key" indexVar="index">                                                                                                                
+                                        <td role="gridcell" data-label="{!key.data}" >                                        
+                                            <div class="slds-truncate" align="{!if( key.align != null, key.align, left)}">{!key.data}</div>
+                                        </td>
+                                    </aura:iteration>
+                                </tr>
+                            </aura:iteration>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </aura:if>
+</aura:component>
+
+CONTROLLER
+({
+    doInIt : function(component, event, helper) {
+        console.log( 'In Method --> ' );
+        var action= component.get("c.fetchListOfTableColumns");    
+        var prodCategory = component.get("v.ProductCategory");
+        console.log( 'prodCategory --> '+prodCategory );       
+        var listOfProdResUniKey = [];
+        var listOfData = component.get( "v.listOfData" );
+        var gridType = component.get("v.gridType");
+        var nonCPLProdResUniKey = [];        
+        console.log( "gridType --> "+JSON.stringify( gridType ) );
+        console.log( 'listOfData --> '+JSON.stringify( listOfData ) );
+        if( gridType == "Price_Grid" ){
+            for( var i in listOfData ){
+                if( listOfData[i].Product__r != null ){
+                    if( listOfProdResUniKey.indexOf( listOfData[i].Product__r['Residential_Product_Unique_Key__c'] ) == -1 ){
+                        var val = listOfData[i].Product__r['Residential_Product_Unique_Key__c'];
+                        listOfProdResUniKey.push( val );    
+                    }
+                }    
+            }    
+        }else if( gridType == "Merchandizing_Vehicle_Price_List" ){
+            console.log( "in else If --> " );
+            console.log( "cplProds --> "+ JSON.stringify( component.get("v.cplProds") ) );
+            console.log( "nonCPLProd --> "+ JSON.stringify( component.get("v.nonCPLProd") ) );
+            listOfProdResUniKey = component.get("v.cplProds");
+            nonCPLProdResUniKey = component.get("v.nonCPLProd");
+        }
+        
+        console.log( 'listOfProdResUniKey --> '+JSON.stringify( listOfProdResUniKey ) );
+        console.log( 'nonCPLProdResUniKey --> '+JSON.stringify( nonCPLProdResUniKey ) );
+        action.setParams({ productCategoryId : prodCategory,
+                          listOfProdResUniKey : JSON.stringify( listOfProdResUniKey ),
+                          nonCPLProdResUniKey : JSON.stringify( nonCPLProdResUniKey ),
+                          accountID : component.get( "v.accountId" )                          
+                         });        
+        action.setCallback(this, function(response){
+            var state = response.getState();
+            if( state=== 'SUCCESS' ){
+                component.set( "v.allData", response.getReturnValue() );
+                var viewData = component.get("v.allData");
+                //      var records =  component.get("v.allData.dataList"); 
+                var dataList = viewData.dataList;                
+                console.log( 'dataList --> '+JSON.stringify( dataList ) );                                
+                var pageSize = component.get("v.pageSize");
+                var dataListFinal = [];
+                var allPriceGridIdsPerPage = [];
+                if( dataList.length > pageSize ){
+                    for( var i=0;i<pageSize;i++ ){
+                        console.log( 'dataList[i] --> '+dataList[i] );
+                        /* dataListFinal.push( {dataValList : dataList[i].dataValList,
+                                             recId : dataList[i].recId ,
+                                             sel : dataList[i].sel } ); */
+                        dataListFinal.push(dataList[i]);
+                        allPriceGridIdsPerPage.push( dataList[i].recId );
+                    }
+                }else{
+                    dataListFinal = dataList;
+                }
+                // console.log( 'dataListFinal --> '+JSON.stringify( dataListFinal ) );                                
+                component.set( "v.filteredData", dataListFinal );                
+                var size = dataList.length;                
+                console.log( 'size --> '+size );
+                console.log( 'pageSize --> '+pageSize );
+                var maxPageNum;
+                if( size % pageSize === 0 ){
+                    maxPageNum = size/pageSize;
+                }else{ maxPageNum = Math.floor( size/pageSize ) + 1; }                
+                component.set("v.maxPage", maxPageNum);
+                var pageNumber = component.get( "v.pageNumber" );
+                var pageSize = component.get( "v.pageSize" );
+                console.log( 'maxPageNum --> '+maxPageNum );
+                if ( dataListFinal.length > 0 ) {
+                    component.set( "v.showTable", true );
+                }
+                
+                
+            }
+        });
+        $A.enqueueAction(action);                            
+    },    
+    onCheck : function( component,event,helper ){    
+        var resultCmp = component.find("checkbox1");
+        var checkCmp = component.find("checkbox");
+        var value = checkCmp.get("v.value");
+        console.log( 'In onCheck --> '+value );        
+        if( value ){ 
+            var cplCreatePriceGridIds = [];
+            var filteredData = component.get( "v.filteredData" );
+            for( var i in filteredData ){
+                cplCreatePriceGridIds.push( filteredData[i].recId );
+            }
+            console.log( 'cplCreatePriceGridIds --> '+cplCreatePriceGridIds );
+            component.set( "v.cplCreatePriceGridIds", cplCreatePriceGridIds ); 
+        }
+        else{ component.set( "v.cplCreatePriceGridIds", [] );}
+        
+        for (var i = 0; i < resultCmp.length; i++){
+            resultCmp[i].set("v.value",value);
+        }        
+    },    
+    handleonKeyUpSearch : function(component, event, helper) {      
+        helper.handleonKeyUpSearchHelper(component, event, helper);      
+    },
+    handleOnBlur : function(component, event, helper) {
+        console.log( 'In onBlur --> ' );        
+        var dataList = component.get( "v.allData.dataList" );
+        component.set("v.filteredData",dataList);
+        component.set("v.pageNumber",0);
+        component.set("v.pageNumber",1);
+        console.log( 'Page Num --> '+component.get( "v.pageNumber" ));
+    },
+    renderPage : function( component,event,helper ){
+        console.log( 'In Render Controller -->' );
+        helper.renderPage( component,event,helper );
+    },
+    sorting : function( component,event,helper ){
+        var colName = event.currentTarget.id;
+        console.log( 'colName --> '+colName );
+        var intVal = parseInt(colName, 10);
+        component.set( "v.currentIndex", intVal ); 
+        helper.sortHelper(component, event, event.currentTarget.id);
+    },
+    Cancel : function( component,event,helper ){
+        //component.set( "v.showAddProduct", false );
+        window.history.back();    
+    },
+    closeAddProduct : function( component,event,helper ){
+        console.log( 'In closeAddProduct --> ' );        
+        helper.helperCloseAddProduct( component, event,helper );
+        //component.set( "v.showAddProduct", false );
+        //helper.getFieldsAndFilters( component, component.get("v.ProductCategory"), component.get("v.viewData.sObjectName") );
+        //window.history.back();    
+    },
+    onEachCheck : function( component,event,helper ){        
+        var cplCreatePriceGridIds = component.get( "v.cplCreatePriceGridIds" );
+        var priceGridID = event.getSource().get("v.name");        
+        var elementID = cplCreatePriceGridIds.indexOf( event.getSource().get("v.name") );                
+        if( event.getSource().get("v.value") && elementID == -1 ){            
+            cplCreatePriceGridIds.push( event.getSource().get("v.name") );                       
+        }else if( !event.getSource().get("v.value") &&  elementID != -1 ) {
+            cplCreatePriceGridIds.splice( elementID, 1 );	    
+        }        
+        component.set( "v.cplCreatePriceGridIds", cplCreatePriceGridIds );
+        console.log( 'cplCreatePriceGridIds --> '+JSON.stringify( cplCreatePriceGridIds ) );
+        //helper.getFieldsAndFilters( component, component.get("v.viewData.productCategory"), component.get("v.viewData.sObjectName") );
+    },
+    
+    // function automatic called by aura:waiting event  
+    showSpinner: function(component, event, helper) {
+        // make Spinner attribute true for displaying loading spinner 
+        component.set("v.spinner", true); 
+    },
+    
+    // function automatic called by aura:doneWaiting event 
+    hideSpinner : function(component,event,helper){
+        // make Spinner attribute to false for hiding loading spinner    
+        component.set("v.spinner", false);
+    }
+})
+
+HELPER
+({
+    handleonKeyUpSearchHelper: function(component, event, helper) {        
+        var _searchVar = event.target.value;
+        console.log( '_searchVar --> '+_searchVar );
+        var _allData = component.get("v.allData.dataList");
+        console.log( '_allData --> '+_allData );
+        console.log( '_allData --> '+_allData.length );
+        var _filterData = [];
+        
+        
+        if(  _searchVar != undefined && _searchVar  != '' ){
+            
+            /*  _filterData =  function findInValues(_allData, _searchVar) {
+                  _searchVar = String(_searchVar).toLowerCase();
+                  return _allData.filter(o =>
+                    Object.entries(o).some(entry =>
+                      String(entry[1]).toLowerCase().includes(_searchVar)
+                    )
+                  );
+			} */
+            /*
+            var _searchData =  function findInValues(_dataFilter , _searchVar) {
+                  _searchVar = String(_searchVar).toLowerCase();
+                  return _dataFilter[i].filter(o =>
+                    Object.entries(o).some(entry =>
+                      String(entry[1]).toLowerCase().includes(_searchVar)
+                    )
+                  );
+               }   */
+            
+            var _searchfn = function search(nameKey, myArray){
+                var _regex = new RegExp(nameKey, "i");  
+                for (var i=0; i < myArray.length; i++) {
+                    if (_regex.test(myArray[i].data)){
+                        return true;
+                    }
+                }
+            }
+            
+            
+            for (var i = 0; i < _allData.length; i++){
+                console.log( 'Name --> '+_allData[i].Name );   
+                var _dataFilter = _allData[i].dataValList;
+                var resultObject = _searchfn(_searchVar, _dataFilter);
+                if (resultObject)
+                    _filterData.push( _allData[i] );
+            }
+            console.log('_filterData --> '+_filterData); 
+            component.set("v.filteredData",_filterData);
+        }else{
+            helper.renderPage(component,event,helper);
+        }
+    },
+    renderPage: function(component,event,helper) {
+        console.log('renderPage');
+        var viewData = component.get("v.allData");
+        var records = viewData.dataList;            
+        console.log('Grid Type: ' + component.get('v.gridType'));
+        console.log('### renderPage - rowHeight: ' + viewData.rowHeight);
+        console.log('### renderPage - rowHeightTablet: ' + viewData.rowHeightTablet);
+        console.log('Records: ' + JSON.stringify(records));
+        var device = $A.get("$Browser.formFactor");
+        
+        if( device != 'PHONE' ){                                                
+            var pageSize = component.get("v.pageSize");
+            console.log( 'pageSize --> '+pageSize );
+            if (records != null && records.length > 0) {
+                console.log('In If --> ');
+                var pageNumber = component.get("v.pageNumber");                
+                var pageRecords = records.slice((pageNumber-1)*pageSize, pageNumber*pageSize);
+                component.set("v.filteredData", pageRecords);
+                component.set("v.maxPage", Math.floor((records.length+(pageSize - 1))/pageSize));
+            }            
+        }
+        else {
+            component.set("v.filteredData", records);
+        }
+        
+    },
+    sortHelper : function( component,event,sortFieldName ){
+        console.log( 'In sortHelper --> ' );      
+        var currentDir = component.get("v.arrowDirection");
+        //console.log( 'currentDir --> '+currentDir );
+        //console.log( 'sortFieldName --> '+sortFieldName );        
+        var dataList = component.get( "v.filteredData" );                      
+        var firstList = [];
+        for( var i in dataList ){
+            var secondList = [];
+            secondList.push( i );
+            secondList.push( dataList[i].dataValList[sortFieldName].data );
+            firstList.push( secondList );
+        }        
+        if( currentDir == 'arrowdown' ){
+            component.set("v.arrowDirection", 'arrowup');
+            firstList.sort(function(a,b){return b[1].localeCompare(a[1]);});
+        }  
+        else{
+            component.set("v.arrowDirection", 'arrowdown');
+            firstList.sort(function(a,b){return a[1].localeCompare(b[1]);});
+        }        
+        //console.log( 'firstList --> '+firstList );        
+        var dataListFinal = [];
+        for( var j in firstList ){
+            console.log( 'firstList[j][1] --> '+firstList[j][0] );
+            dataListFinal.push( dataList[firstList[j][0]] );
+        }                
+        //console.log( 'dataListFinal --> '+JSON.stringify( dataListFinal ) );        
+        component.set( "v.filteredData",dataListFinal );                
+    },
+    helperCloseAddProduct : function( component,event,helper ){       
+        console.log( 'helperCloseAddProduct -->' );
+        var cplCreatePriceGridIds = component.get( "v.cplCreatePriceGridIds");
+        if( cplCreatePriceGridIds.length > 0 ){
+            var action = component.get( "c.CreateCPLRecords" ); 
+            console.log( '' )
+            action.setParams({
+                objectName : component.get("v.viewAllData.sObjectName"),
+                SelectedRecords : JSON.stringify( cplCreatePriceGridIds ),
+                accountID : component.get( "v.accountId" ),
+                productCategoryId : component.get("v.ProductCategory")
+            });
+            action.setCallback(this, function( response ){
+                var state = response.getState();
+                if( state == "SUCCESS" ){
+                    console.log( 'Save Response --> '+response.getReturnValue() );
+                    console.log( 'Prod Category Id --> '+component.get("v.ProductCategory"));
+                    console.log( component.get( "v.viewAllData.productCategoryId" ) );
+                    console.log( 'sObject --> '+'CPL_Residential_Broadloom__c');
+                }
+            });
+            $A.enqueueAction( action );            
+        }else{
+            helper.showToast( "Error", "Please select a Price Grid Record to Create CPL Record", "error" );
+        }        
+    },
+    showToast : function( Title, Message, Type ){        
+        var showToast = $A.get("e.force:showToast");
+        showToast.setParams({
+            'title' : Title,
+            'message' : Message,
+            'type' : Type,
+            'mode': 'sticky'
+        });
+        showToast.fire();
+    }
+})
+
