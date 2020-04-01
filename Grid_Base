@@ -1,0 +1,741 @@
+COMPONENT
+<aura:component controller="Grid_BaseController" implements="flexipage:availableForAllPageTypes" extensible="true">
+    <ltng:require styles="{!$Resource.Grid_BaseStyle}"/>
+    <aura:attribute name="viewData" type="Map" default="{}"/>
+    <aura:attribute name="timeStamp" type="DateTime" />    
+	{!v.body}
+</aura:component>
+
+CONTROLLER
+
+HELPER
+({
+    DEFAULT_TIP: 'Other selections may appear depending upon the product category.\n Fill them all out to see the data.',
+    NO_RESULTS: 'No Results',
+    NO_RESULTS_TIP: 'Search for something else',
+    
+    getProductCategories: function(component) {       
+        var _gridType = component.get("v.gridType");
+        var _accId = component.get("v.accountId");
+        var _prodId = component.get("v.productId");        
+        this.doCallout(component, "c.fetchProductCategories", {
+            "gridType": _gridType,
+            "accountId": _accId,
+            "productId": _prodId
+        }, function(response) {
+            var _status = response.getState();
+            console.log('Status: ' + _status);
+            if (_status === 'SUCCESS') {
+                var _resp = response.getReturnValue();                
+                var _viewData = component.get('v.viewData');
+                _viewData.sObjectName = _resp[0];
+                _viewData.hasUnselectedPrimaryFilters = true;
+                component.set("v.productCategories", _resp[1]);                
+                _viewData.isAccountField = _resp[2];
+                if(!$A.util.isUndefinedOrNull(_accId)){
+                    _viewData.account = _resp[3];
+                }
+                console.log('Account: ' + JSON.stringify(_viewData.account));
+                _viewData.numberOfRecords = _resp[4];
+                _viewData.rowHeight = _resp[5];
+                _viewData.rowHeightTablet = _resp[6];
+                _viewData.productId = component.get("v.productId");
+                //BY Mudit - 08/14/18 - Bug 63282                    
+                if( _gridType == 'Merchandizing_Vehicle_Price_List' ){
+                    _viewData.productName = _resp[7].Name;
+                }
+                //BY Mudit - 08/14/18 - Bug 63282 				 
+                console.log('### Grid_Base - getProductCategories - numberOfRecords: ' + _viewData.numberOfRecords);
+                console.log('### Grid_Base - getProductCategories - rowHeight: ' + _viewData.rowHeight);
+                console.log('### Grid_Base - getProductCategories - rowHeightTablet: ' + _viewData.rowHeightTablet);
+                console.log('### Grid_Base - getProductCategories - productCategory: ' + _gridType)
+                //Added BY - MUDIT - BUG 69643 START
+                if( _resp[1].length > 0 && _gridType === 'Merchandizing_Vehicle_Price_List'){
+                    component.set("v.firstElementPC", _resp[1][0].Id);
+                    component.set("v.viewData.productCategoryId", _resp[1][0].Id);
+                }
+                //ADDED BY - MUDIT - BUG 69643 END
+                _viewData.hasXchangePermission = false;
+                component.set("v.viewData", _viewData);
+                //Added BY - MUDIT - BUG 69643 START
+                if(_gridType === 'Merchandizing_Vehicle_Price_List'){
+                    this.getFieldsAndFilters( component, component.get("v.viewData.productCategoryId"), component.get("v.viewData.sObjectName") );
+                    this.getMPVisablity(component,component.get("v.viewData.productCategoryId"),component.get("v.accountId"));
+                }
+                //ADDED BY - MUDIT - BUG 69643 END
+            }
+        });
+    },
+    getFieldsAndFilters: function(component, prodCategoryId, sObjectName) {
+        var _this = this;
+        var _vd = component.get("v.viewData");
+        var _account = _vd.account;
+        var _accountId = null;
+        if (_account != null) {
+            _accountId = _account['Id']
+            console.log('### account: ' + _accountId);
+        }
+        _this.handlePageMessage(component, '', null);
+        _this.doCallout(component, "c.fetchFields", {
+            "productCategoryId": prodCategoryId,
+            "sObjectName": sObjectName,
+            "accountId" : _accountId,						 
+            "productCategoriesJSON": JSON.stringify(component.get("v.productCategories"))
+        }, function(response) {
+            var _status = response.getState();
+            if (_status === 'SUCCESS') {
+                var _viewData = component.get("v.viewData");
+                console.log('### Grid_Base - getFieldsAndFilters - numberOfRecords: ' + _viewData.numberOfRecords);
+                var _resp = response.getReturnValue();
+                _resp.account = _viewData.account;
+                _resp.isAccountField = _viewData.isAccountField;
+                _resp.numberOfRecords = _viewData.numberOfRecords;
+                _resp.rowHeight = _viewData.rowHeight;
+                _resp.rowHeightTablet = _viewData.rowHeightTablet;
+                _resp.productCategoryId = prodCategoryId;
+                _resp.productName = _viewData.productName;
+                _resp.productId = _viewData.productId; //Added by MB - Bug 70747 - 2/12/19
+                //Start of Code - MB - Bug 70808 - 2/21/19
+                _resp.globalSearchText = _viewData.globalSearchText; 
+                _resp.productCategoryIdMap = _viewData.productCategoryIdMap;
+                _resp.productCategoryZonesMap = _viewData.productCategoryZonesMap; //Added by MB - Bug 71631 - 3/20/19
+                _resp.zonesBuyingGroupMap = _viewData.zonesBuyingGroupMap; //Added by MB - Bug 72382 - 4/2/19
+                _resp.hasXchangePermission = _viewData.hasXchangePermission; //Added by MB - US 78931 - 9/20/19
+                _viewData.isMobile = ($A.get("$Browser.formFactor") == 'PHONE');
+                if(_viewData.isMobile && _viewData.globalSearchText && _viewData.globalSearchText !== undefined && _viewData.globalSearchText !== ''){
+                    _resp.keywordSearch = _viewData.globalSearchText;
+                }
+                //End of Code - MB - Bug 70808 - 2/21/19
+                
+                _this.handlePrimaryFields(component, _resp);
+                component.set("v.viewData", _resp);
+                console.log('### Grid_Base - getFieldsAndFilters - resp: productId: ' + _resp.productId);
+                //Start of Code - MB - Bug 71631 - 3/20/19
+                _resp.productCategoryZonesMap = _viewData.productCategoryZonesMap;	
+                if(_resp.productCategoryZonesMap !== undefined && _resp.productCategoryZonesMap.length>0){
+                    var _prodCatName = _this.getSelectedProductCategoryName(component);
+                    var productCategoryZonesMap = _resp.productCategoryZonesMap;
+                    var options = [];
+                    for(var i in productCategoryZonesMap){
+                        if(productCategoryZonesMap[i].ProductCategoryName === _prodCatName){
+                            var availableZones = productCategoryZonesMap[i].AvailableZones;
+                            for(var key in availableZones){
+                                options.push({value : key, label : availableZones[key]});
+                            }
+                            console.log('zonesList: ' + JSON.stringify(options));
+                            var listOfPrimaryFilters = _resp.listOfPrimaryFilters;
+                            for(var idx in listOfPrimaryFilters){
+                                if(listOfPrimaryFilters[idx].fieldName === 'Zone__c'){
+                                    listOfPrimaryFilters[idx].listOfFilterOptions = options;
+                                }
+                            }
+                        }
+                    }
+                }
+                //End of Code - MB - Bug 71631 - 3/20/19
+                _this.checkFiltersAndGetData(component);
+            }
+        });
+    },
+    handlePrimaryFields: function(component, viewData) {
+        console.log('### Grid_Base - handlePrimaryFields - numberOfRecords: ' + viewData.numberOfRecords);
+        viewData.listOfData_Server = viewData.listOfData;
+        viewData.hasUnselectedPrimaryFilters = true;
+        viewData.isMobile = ($A.get("$Browser.formFactor") == 'PHONE');
+        for (var pFilter of viewData.listOfPrimaryFilters) {
+            if (pFilter.hasFilterOptions && pFilter.listOfFilterOptions.length == 1) {
+                pFilter.stringValue = pFilter.listOfFilterOptions[0].value;
+            }
+        }
+    },
+    getViewData: function(component) {
+        //Show the spinner 
+        var spinner = component.find("chartSpinner");
+        if (spinner != undefined)
+            $A.util.toggleClass(spinner, "slds-hide");
+        
+        var start = performance.now();
+        var _this = this;
+        _this.handlePageMessage(component, '', null);
+        var _viewData = component.get('v.viewData');
+        console.log('### Grid_Base (helper) - getViewData 1 - numberOfRecords: ' + _viewData.numberOfRecords);
+        console.log('### Grid_Base - getViewData - productId: ' + _viewData.productId);
+        
+        _viewData.listOfData = [];
+        _viewData.listOfData_Server = [];
+        var elapsed = performance.now() - start;
+        console.log('### updateData - elapsed time: ' + elapsed);
+        //*********************************
+        //FIX for: 61854 "MVPL" Grid is not filtering down to right set of data
+        
+        var grid = _viewData.grid;
+        console.log('### grid: ' + grid);
+        if (grid == 'Merchandizing_Vehicle_Price_List' || grid == 'Merch Vehicle Price List') {
+            var productId = component.get("v.productId");
+            console.log('### getViewData - productId: ' + productId);
+            _viewData.productId = productId;
+        }
+        //*********************************
+        
+        // Start of Code - MB - Bug - 70808 - 2/20/19
+        if(_viewData.globalSearchText && _viewData.globalSearchText != '' && _viewData.globalSearchText !== undefined && 
+           _viewData.productCategoryIdMap !== undefined && _viewData.productCategoryIdMap !== null){
+            var prodCatMap = _viewData.productCategoryIdMap;
+            var cat= '';
+            if(_viewData.productCategory === 'TecWood'){
+                cat = 'Tec Wood';
+            }else if(_viewData.productCategory === 'SolidWood'){
+                cat = 'Solid Wood';
+            }else if(_viewData.productCategory === 'RevWood'){
+                cat = 'Rev Wood';
+            }else if(_viewData.productCategory === 'Resilient Tile'){
+                cat = 'Resilient Tile and Plank';
+            }else if(_viewData.productCategory === 'Care and Maintenance'){
+                cat = 'Care & Maintenance';
+            }else{
+                cat = _viewData.productCategory;
+            }
+            console.log('cat: ' + cat);
+            var idList = prodCatMap[cat];
+            _viewData.cplIdList = idList;
+            console.log('### Grid_Base - getViewData - cplIdList: ' + _viewData.cplIdList);
+        }
+        // End of Code - MB - Bug - 70808 - 2/20/19
+        _this.doCallout(component, "c.fetchListOfData", {
+            "viewDataJSONString": JSON.stringify(_viewData)
+        }, function(response) {
+            elapsed = performance.now() - start;
+            console.log('### updateData - elapsed time: ' + elapsed);
+            var _status = response.getState();
+            if (_status === 'SUCCESS') {
+                var _resp = response.getReturnValue();
+                var _viewData = component.get("v.viewData");
+                //---------MOBILE PRICING CHANGE---------//
+                _viewData.gridEditFields=_resp.gridEditFields;
+                _viewData.currentUserId=_resp.currentUserId;
+                //---------MOBILE PRICING CHANGE---------//                
+                console.log('### Grid_Base (helper) - getViewData 2 - JSON.stringify(_resp.listOfData): ' + JSON.stringify(_resp.listOfData));
+                console.log('hasXchangePermission result: '+JSON.stringify(_viewData.hasXchangePermission));                
+                if (_resp.listOfData === null || JSON.stringify(_resp.listOfData) === undefined || _resp.listOfData.length === 0) {
+                    _this.handlePageMessage(component, _this.NO_RESULTS, _this.NO_RESULTS_TIP);
+                } else {					
+                    _viewData.listOfData_Server=_resp.listOfData;
+                    _viewData.listOfData=_resp.listOfData;
+                    _viewData.listOfFields=_resp.listOfFields;
+                    _viewData.hasUnselectedPrimaryFilters = false;
+                    component.set("v.disableFilterBtn", false); // Added by MB - Bug 70808 - 3/7/19
+                    _viewData.hasXchangePermission = _resp.hasXchangePermission; //Added by MB - US 78931 - 9/23/19
+                    _this.processViewData(_viewData);
+                    component.set("v.viewData", _viewData);
+                    
+                }
+                /*
+                var _resp = response.getReturnValue();
+                console.log(_resp);
+                var _viewData = component.get("v.viewData");
+                _resp.isAccountField = _viewData.isAccountField;
+                if (_resp.listOfData == null || _resp.listOfData.length == 0) {
+                    _this.handlePageMessage(component, _this.NO_RESULTS, _this.NO_RESULTS_TIP);
+                } else {
+                    _resp.listOfData_Server = _resp.listOfData;
+                    _resp.hasUnselectedPrimaryFilters = false;
+                    _resp.warehouseValue = _viewData.warehouseValue;
+                    _this.processViewData(_resp);
+                }
+                component.set("v.viewData", _resp);
+            */
+                
+                //var dtcomp = component.find("dataTable");
+                //if (dtcomp != null){
+                //dtcomp.set('v.currentList',_viewData.listOfData);
+                //dtcomp.updateView();
+                //dtcomp.rerender();
+                //}
+            } else {
+                _this.handlePageMessage(component, _this.NO_RESULTS, _this.NO_RESULTS_TIP);
+                component.set("v.viewData", _viewData);
+            }
+            component.set("v.timeStamp", Date.now());
+            
+            //Hide the spinner after completing the data fetch
+            var spinner = component.find("chartSpinner");
+            if (spinner != undefined)
+                $A.util.toggleClass(spinner, "slds-hide");
+            
+            elapsed = performance.now() - start;
+            console.log('### getViewData - elapsed time: ' + elapsed);  
+            console.log('hasXchangePermission: '+JSON.stringify(component.get("v.viewData.hasXchangePermission")));            
+        });
+    },
+    processViewData: function(viewData) {
+        console.log('### Grid_Base - processViewData - numberOfRecords: ' + viewData.numberOfRecords);
+        //sort secondary filters
+        viewData.listOfSecondaryFilters.sort(function(a, b) {
+            var val1 = a.order;
+            var val2 = b.order;
+            if ($A.util.isUndefinedOrNull(val1) || val1 < val2) {
+                return -1;
+            }
+            if ($A.util.isUndefinedOrNull(val2) || val1 > val2) {
+                return 1;
+            }
+            return 0;
+        });
+    },
+    clearData: function(component){
+        var _viewData = component.get('v.viewData');
+        console.log('### Grid_Base - clearData - numberOfRecords: ' + _viewData.numberOfRecords);        
+        _viewData.listOfData_Server=[];
+        _viewData.listOfData=[];
+    },
+    doShowSpinner: function(component) {
+        var _spinner = component.find("spinner");
+        $A.util.removeClass(_spinner, "slds-hide");
+    },
+    doHideSpinner: function(component) {
+        var _spinner = component.find("spinner");
+        $A.util.addClass(_spinner, "slds-hide");
+    },
+    doCallout: function(component, method, params, callbackFunc) {
+        var _action = component.get(method);
+        var _this = this;
+        _action.setParams(params);
+        //_this.doShowSpinner(component);
+        _action.setCallback(this, callbackFunc);
+        $A.enqueueAction(_action);
+    },
+    updateData: function(component) {
+        var start = performance.now();
+        var _this = this;
+        var _viewData = component.get("v.viewData");
+        
+        console.log('### Grid_Base (helper) - updateData - numberOfRecords: ' + _viewData.numberOfRecords);
+        var _listOfData = _viewData.listOfData_Server.slice();
+        var _searchKeyword = _viewData.searchKeyword;
+        var _listOfSecondaryFilters = _viewData.listOfSecondaryFilters;
+        var _listOfPrimaryAPINames = _viewData.listOfPrimaryAPINames;
+        
+        
+        var keys;
+        var field;
+        var dataValue;
+        var filterValArray;
+        var includeInResult;
+        //doFilter
+        var elapsed = performance.now() - start;
+        console.log('### updateData - elapsed time: ' + elapsed);
+        if (!$A.util.isUndefinedOrNull(_searchKeyword) && _searchKeyword.length > 2) {
+            console.log(_listOfData);
+            _listOfData = _listOfData.filter(function(item) {
+                for (var i = 0; i < _listOfPrimaryAPINames.length; i++) {
+                    
+                    field = _listOfPrimaryAPINames[i];
+                    //console.log(field);
+                    dataValue = '' + _this.getFieldValue(item, field);
+                    if (dataValue.toUpperCase().indexOf(_searchKeyword.toUpperCase()) != -1) return true;
+                }
+            });
+        }
+        elapsed = performance.now() - start;
+        console.log('### updateData - elapsed time: ' + elapsed);
+        //do filter for secondary filters
+        if(_listOfSecondaryFilters && _listOfSecondaryFilters.length > 0) {
+            _listOfSecondaryFilters.forEach(fltr => {
+                if (fltr.stringValue != "") {
+                _listOfData = _listOfData.filter(function(item) {
+                includeInResult = false;
+                dataValue = '' + _this.getFieldValue(item, fltr.fieldName);
+                if (fltr.stringValue.indexOf(';') > -1) {
+                filterValArray = fltr.stringValue.split(';');
+                
+                filterValArray.forEach(fltrVal => {
+                console.log(fltrVal + '  ' + fltrVal.toUpperCase());
+                /* Start of Code - MB - 8/3/18 - Bug 62716 */
+                if(fltr.fieldName === 'Product__r.Display__c'){
+                if (dataValue.toUpperCase().includes(fltrVal.toUpperCase())) {
+                includeInResult = true;
+            }	
+                                            }else{ /* End of Code - MB - 8/3/18 - Bug 62716 */
+                                            if (dataValue.toUpperCase() == fltrVal.toUpperCase()) {
+                includeInResult = true;
+            } //Removed ';' after '}' - not sure why ';' was added - MB - 8/3/18 - Bug 62716
+        }
+    });
+    return includeInResult;
+} else {
+ /* Start of Code - MB - 8/3/18 - Bug 62716 */
+ if(fltr.fieldName === 'Product__r.Display__c'){
+    if (dataValue.toUpperCase().includes(fltr.stringValue.toUpperCase())) {
+        return true;
+    }	
+}else{ /* End of Code - MB - 8/3/18 - Bug 62716 */
+    if (dataValue.toUpperCase() == fltr.stringValue.toUpperCase()) return true;
+}
+}
+});
+}
+});
+}
+elapsed = performance.now() - start;
+console.log('### updateData - elapsed time: ' + elapsed);
+
+//do sorting
+if (!$A.util.isUndefinedOrNull(_viewData.sortField)) {
+    console.log('### sorting by ' + _viewData.sortField);
+    _listOfData.sort(function(a, b) {
+        var val1 = _this.getFieldValue(a, _viewData.sortField);
+        var val2 = _this.getFieldValue(b, _viewData.sortField);
+        
+        if ($A.util.isUndefinedOrNull(val1) || val1 < val2) {
+            if (_viewData.sortOrder == 'asc')
+                return -1;
+            else {
+                return 1;
+            }
+        }
+        
+        if ($A.util.isUndefinedOrNull(val2) || val1 > val2) {
+            if (_viewData.sortOrder == 'asc')
+                return 1;
+            else {
+                return -1
+            }
+        }
+        return 0;
+    });
+}
+elapsed = performance.now() - start;
+console.log('### updateData - elapsed time: ' + elapsed);
+
+if (_listOfData.length == 0) {
+    _this.handlePageMessage(component, _this.NO_RESULTS, _this.NO_RESULTS_TIP);
+} else {
+    _this.handlePageMessage(component, '', null);
+}
+_viewData.listOfData = _listOfData;
+elapsed = performance.now() - start;
+console.log('### updateData - elapsed time: ' + elapsed);
+component.set("v.viewData", _viewData);
+component.set("v.timeStamp", Date.now());
+
+//var dtcomp = component.find("dataTable");
+//if (dtcomp != null)
+//dtcomp.updateView();
+elapsed = performance.now() - start;
+console.log('### updateData - elapsed time: ' + elapsed);
+},
+    getFieldValue: function(data, field) {
+        var _fieldArray = [];
+        if (field.indexOf('.')) {
+            while (field.indexOf('.') > -1) {
+                _fieldArray = field.split('.');
+                data = data[_fieldArray[0]];
+                field = _fieldArray[1];
+            }
+        }
+        if (data == null){
+            return null;
+        }
+        
+        return data[field];
+    },
+    handlePageMessage: function(component, message, tip) {
+    	var _viewData = component.get("v.viewData");
+        console.log('### Grid_Base - handlePageMessage - numberOfRecords: ' + _viewData.numberOfRecords); 
+        if (message == '') {
+        	_viewData.hasMessage = false;
+        } else {
+        	_viewData.message = message;
+            if (tip != null)
+                _viewData.tip = tip;
+            _viewData.hasMessage = true;
+        }
+        component.set("v.viewData", _viewData);
+    },            
+    getHeaderValue : function(_data, _listOfFields){
+        var _this = this;
+        var headerValue;
+        var label;
+        for(var key in _listOfFields){            
+            for(var fields in _listOfFields[key ]){
+                if(fields=='field'){
+                    for(var data in  _listOfFields[key ][fields]){
+                        console.log('key==>'+data+'values==>'+JSON.stringify(_listOfFields[key ][fields][data]));
+                        if(data=='Is_Secondary_Modal_Header__c' && _listOfFields[key ][fields][data]){
+                            console.log('headerValue--'+headerValue);
+                            headerValue = _listOfFields[key][fields].Field_API_Name__c;
+                            label = _listOfFields[key][fields].Field_Label__c;
+                            console.log('headerValue--'+headerValue);
+                            console.log('_listOfFields[key][fields].Field_API_Name__c===>'+_listOfFields[key][fields].Field_Label__c);
+                        }
+                        
+                    }
+                }
+                
+                
+            }
+            if(_listOfFields[key].Is_Secondary_Modal_Header__c){
+                //console.log('key==>'+key+'_listOfFields==>'+_listOfFields[key].Field_API_Name__c+'apiname==>'+key.Field_API_Name__c);
+                //headerValue = _listOfFields[key].Field_API_Name__c;
+            }
+        }
+        var field = headerValue;
+        var data  = _this.getFieldValue(_data,field);
+        headerValue=label+' - '+data;
+        console.log('header value===>'+headerValue);
+        return headerValue;            
+    },        
+    getSelectedProductCategoryName : function(component){
+        var _prodCategoryId = component.get('v.viewData.productCategoryId');
+        console.log(_prodCategoryId);
+        var _productCategories = component.get('v.viewData.productCategories');
+        if (_productCategories == null)
+            _productCategories = component.get('v.productCategories');
+        console.log(_productCategories);
+        var _prodCatName = '';
+        if (_prodCategoryId != null){
+            for(var i=0; i<_productCategories.length; i++){
+                if (_productCategories[i].Id == _prodCategoryId){
+                    _prodCatName = _productCategories[i].Product_Category__c;
+                    break;
+                }
+            }
+        }
+        return _prodCatName;
+    },
+    openLEModal : function(component, helper, componentDef, componentAttributes) {
+        var device = $A.get("$Browser.formFactor");
+        //if( device == 'DESKTOP' ){        
+        var evt = $A.get("e.force:navigateToComponent");
+        evt.setParams({
+            componentDef : componentDef,
+            componentAttributes: componentAttributes/*,
+                isredirect : true*/
+                        });
+        evt.fire();
+        //}else if( device == 'PHONE' || device == 'TABLET' ){
+        //    helper.navigateToOpenLE( component,componentDef,componentAttributes );
+        //}
+    },
+    navigateToOpenLE : function( component,componentName,componentAttributes ) {   
+        var modalBody;
+        $A.createComponent(componentName, componentAttributes, function(content, status) {
+            if (status === "SUCCESS") {
+                modalBody = content;
+                console.log('### reportFilterOverlay: ' + component.find('reportFilterOverlay'));
+                console.log('### componentName: ' + componentName);
+                console.log('### modalBody: ' + modalBody);
+                var _gridModalPromise = component.find('reportFilterOverlay').showCustomModal({
+                    header: "Reports",
+                    body: modalBody,
+                    showCloseButton: true,
+                    cssClass: "secondary-filter-modal"
+                });
+                console.log('### _gridModalPromise: ' + _gridModalPromise);
+                component.set("v.gridModalPromise", _gridModalPromise);
+            } 
+            
+        });    
+        
+    },
+    //Start of Code - MB - US 80853 - 10/2/19
+    updateSecondaryFilterData: function(component, clearAll){
+        var start = performance.now();
+        var _this = this;
+        var _viewData = component.get("v.viewData");
+        
+        console.log('### Grid_Base (helper) - updateData - numberOfRecords: ' + _viewData.numberOfRecords);
+        var _listOfData = _viewData.listOfData.slice();
+        var _searchKeyword = _viewData.searchKeyword;
+        var _listOfSecondaryFilters = _viewData.listOfSecondaryFilters;
+        var keys;
+        var field;
+        var dataValue;
+        var filterValArray;
+        var includeInResult;
+        var elapsed = performance.now() - start;
+        
+        if(clearAll){
+            _listOfData = _viewData.listOfData_Server.slice();
+        }
+        elapsed = performance.now() - start;
+        console.log('### updateData - elapsed time: ' + elapsed);
+        //do filter for secondary filters
+        if(_listOfSecondaryFilters && _listOfSecondaryFilters.length > 0) {
+            _listOfSecondaryFilters.forEach(fltr => {
+                if (fltr.stringValue != "") {
+                _listOfData = _listOfData.filter(function(item) {
+                includeInResult = false;
+                dataValue = '' + _this.getFieldValue(item, fltr.fieldName);
+                if (fltr.stringValue.indexOf(';') > -1) {
+                filterValArray = fltr.stringValue.split(';');
+                
+                filterValArray.forEach(fltrVal => {
+                console.log(fltrVal + '  ' + fltrVal.toUpperCase());
+                if(fltr.fieldName === 'Product__r.Display__c'){
+                if (dataValue.toUpperCase().includes(fltrVal.toUpperCase())) {
+                includeInResult = true;
+            }	
+                                            }else{ 
+                                            if (dataValue.toUpperCase() == fltrVal.toUpperCase()) {
+                includeInResult = true;
+            } 
+        }
+    });
+return includeInResult;
+} else {
+    if(fltr.fieldName === 'Product__r.Display__c'){
+        if (dataValue.toUpperCase().includes(fltr.stringValue.toUpperCase())) {
+            return true;
+        }	
+    }else{ 
+        if (dataValue.toUpperCase() == fltr.stringValue.toUpperCase()) return true;
+    }
+}
+});
+}
+});
+}
+elapsed = performance.now() - start;
+console.log('### updateData - elapsed time: ' + elapsed);
+if (_listOfData.length == 0) {
+    _this.handlePageMessage(component, _this.NO_RESULTS, _this.NO_RESULTS_TIP);
+} else {
+    _this.handlePageMessage(component, '', null);
+}
+_viewData.listOfData = _listOfData;
+elapsed = performance.now() - start;
+console.log('### updateData - elapsed time: ' + elapsed);
+component.set("v.viewData", _viewData);
+component.set("v.timeStamp", Date.now());
+
+elapsed = performance.now() - start;
+console.log('### updateData - elapsed time: ' + elapsed);
+},
+    //End of Code - MB - US 80853 - 10/2/19
+    
+    // ADDED BY MUDIT - MOBILE PRICING
+    getMPVisablity: function(component,prodCategoryId,accId) {               
+        console.log( '***accId***' + accId );
+        this.doCallout(component, "c.getProductCategoryLevelVisibility", {
+            "ProductCategoryId": prodCategoryId,
+            "accountId" : accId
+        }, function(response) {
+            var _status = response.getState();            
+            if (_status === 'SUCCESS') {
+                var _result = response.getReturnValue();                
+                component.set("v.hideMP",_result.PCCheck);
+                component.set("v.MPCheckObj",_result);
+                
+                console.log('::::MS::::');
+                console.log( component.get('v.MPCheckObj') );
+                console.log('::::MS::::');                
+            }
+        });
+    },
+    handleSubmitForApproval : function(component, event, helper){
+        this.doCallout(component, "c.submitForApproval", {
+            "objectName": component.get("v.viewData.sObjectName")
+        }, function(response) {
+            var _status = response.getState();
+            if (_status === 'SUCCESS') {
+                this.getFieldsAndFilters(component, component.get("v.viewData.productCategoryId"), component.get("v.viewData.sObjectName")  ); 
+            }
+            
+        });
+    },
+    //Added by Piyush on 21st Feb, 2020
+	helperAddUserAndAccToTerritory : function( component,accId,tmNum ){
+        console.log( "In helperAddUserAndAccToTerritory --> " );
+        console.log( "accId --> "+accId );
+        console.log( "tmNum --> "+tmNum );
+        
+        //First Callout
+        var action = component.get("c.AssignUser2TerritoryMethod");
+        action.setParams({
+            accId : accId,
+            tmNum : tmNum
+        });
+        action.setCallback(this, function( response ){
+            var state = response.getState();
+            if( state == "SUCCESS" ){                        
+                var resp = response.getReturnValue();
+                console.log( "resp --> "+JSON.stringify( resp ) );
+                if( resp.hasAccess && resp.parentAccId != "" ){
+                    this.navigateToParentAcc( component,resp.parentAccId );
+                }else if( !resp.hasAccess ){                            
+                    if( resp.parentAccId != "" && resp.terrId != "" ){
+                        //Second Callout
+                        var actionSecond = component.get("c.createTerrObj");
+                        actionSecond.setParams({
+                            wrapObj : resp
+                        });
+                        actionSecond.setCallback( this, function( responseSecond ){
+                            var stateSecond = responseSecond.getState();
+                            if( stateSecond == "SUCCESS" ){
+                                /*  var respSecond = response.getReturnValue();
+                        		   console.log( "respSecond --> "+JSON.stringify( responseSecond ) ); */
+                                        this.navigateToParentAcc( component,resp.parentAccId );
+                                    }
+                                } );
+                                $A.enqueueAction( actionSecond );
+                            }    
+                        }                        
+                    }
+                });
+        $A.enqueueAction( action );
+        
+    },
+    navigateToParentAcc : function( component,parentAccId ){
+        console.log( "In navigateToParentAcc --> "+parentAccId );                    
+        var navEvt = $A.get("e.force:navigateToSObject");
+        navEvt.setParams({
+            "recordId": parentAccId,
+            "slideDevName": "detail"
+        });
+        navEvt.fire();	                        
+    },        
+    getRowColorCodes : function( component ){
+        var action = component.get("c.colorMap");
+        action.setCallback(this, function( response ){
+            var state = response.getState();
+            if( state == "SUCCESS" ){                        
+                var colors = [];
+                var result = response.getReturnValue();
+                for(var key in result){
+                    colors.push({
+                        value : result[key],
+                        key : key
+                    });
+                }
+                console.log('==COLOR==');
+                console.log(colors);
+                console.log('==COLOR==');
+                component.set("v.colorMap",colors);
+                console.log( component.get("v.colorMap") );
+                
+            }
+        });
+        $A.enqueueAction( action );
+    },
+    // ADDED BY MUDIT - MOBILE PRICING
+})
+
+CSS
+.THIS .header-button{
+    width: 100%;
+    /*text-align: left;*/
+}
+.THIS .slds-modal__container{
+    margin: 0 auto ;
+    width: 100%;
+    max-width: 60rem;
+    min-width: 20rem
+}
+
+.THIS .filter-badge{
+    position:absolute;
+    margin-left:-10px;
+    background-color: rgb(0, 95, 178);
+    color: #FFF;
+}
