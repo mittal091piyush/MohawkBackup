@@ -1,0 +1,849 @@
+COMPONENT
+
+<aura:component extends="c:Grid_Base" implements="flexipage:availableForAllPageTypes" access="global">
+    <lightning:overlayLibrary aura:id="overlayLib"/>
+    <lightning:overlayLibrary aura:id="reportFilterOverlay"/>
+    <aura:method name="updateView" action="{!c.doUpdateView}"/>
+    <aura:attribute name="gridType" type="String" default="Price_Grid"/>
+    <aura:attribute name="accountId" type="String"/>
+    <aura:handler event="c:Grid_LaunchSecondaryModalEvent" action="{!c.handleLaunchSecondaryEvent}"/>
+    
+    <aura:attribute name="productCategoryName" type="String"/>
+    
+    <!-- Begin of Pagination attributes and handlers -->
+    <aura:attribute type="Object[]"    name="allAccounts" />
+    <aura:attribute type="Object[]"    name="currentList" />
+    <aura:attribute type="Integer"      name="pageNumber"		default="1" />
+    <aura:attribute type="Integer"      name="maxPage"			default="1" />
+    <aura:attribute type="String"       name="sortField" />
+    <aura:attribute type="Boolean"		name="sortAsc" />
+    <aura:attribute type="DateTime"		name="timeStamp" />
+    <aura:handler name="change"			value="{!v.pageNumber}"	action="{!c.renderPage}" />
+    <aura:handler name="change"			value="{!v.timeStamp}"	action="{!c.dataChanged}" />
+    <!-- End of Pagination attributes and handlers-->
+    
+    <aura:attribute type="Boolean"		name="initLoad" default="true"/>
+    
+    <aura:attribute name="nonCPLProd" type="List" />    
+    <aura:attribute name="cplProds" type="List" />    
+    
+    <!-- MOBILE PRICE ATTRIBUTES - ADDED BY MUDIT 03-12-2019 -->
+    <aura:attribute name="hideMP" type="Boolean" default="false" />
+    <aura:attribute name="MPCheckObj" type="object" />
+    
+    <aura:attribute type="Boolean" name="showMPEditPrice" default="false"/>
+    <!--<aura:attribute name="CRP" type="decimal"/>
+    <aura:attribute name="CCP" type="decimal"/>-->
+    <aura:attribute type="Boolean" name="showMPCreateLimitedTimePrice" default="false"/>
+    <aura:attribute type="Boolean" name="showMenuBtn" default="false"/>
+    <aura:attribute type="string" name="selectedRecordId"/>
+    <aura:attribute type="List" name="selectedCHK"/>
+    <aura:attribute type="string" name="selectedObj"/>    
+    <aura:attribute name="PriceGridUniqueKey" type="string"/>
+    <aura:attribute name="subCategory" type="string"/>
+    <!--<aura:attribute name="isWithdrawPrice" type="boolean"/>-->
+    <aura:attribute name="colorMap" type="List" />
+    <aura:attribute name="isPriceGridRecord" type="boolean" default="false"/>
+    
+    <!-- REMOVE -->
+    <aura:attribute type="Boolean" name="showRemoveConfirmation" default="false"/>
+    <aura:attribute type="string" name="RemoveRecordId"/>
+    <!-- REMOVE -->
+    
+    <!-- WITHDRAW -->
+    <aura:attribute type="Boolean" name="showWithdrawConfirmation" default="false"/>
+    <aura:attribute type="string" name="WithdrawRecordId"/>
+    <!-- WITHDRAW -->
+    
+    <!-- HANDLE MP EVENT -->
+    <aura:handler event="c:MP_EVENT" action="{!c.handleRowColorChange}"/>
+    <!-- HANDLE MP EVENT -->
+    <aura:handler name="refreshTopParent" event="c:MP_ChangeEvent" action="{!c.handleComponentEvent}"/>
+	
+	<aura:registerEvent name="openModalEvent" type="c:MP_ModalEvent"/>    
+
+  	<!-- MOBILE PRICE ATTRIBUTES - ADDED BY MUDIT 03-12-2019 -->
+    <div>
+        <aura:if isTrue="{!!empty(v.viewData.listOfData)}">
+            <!-- Begin of Pagination attributes and handlers -->
+            
+            <aura:if isTrue="{!$Browser.isPhone == false}">
+                <c:dataPagination currentPageNumber="{!v.pageNumber}" 
+                                  maxPageNumber="{!v.maxPage}" />
+            </aura:if>
+            
+            <!-- End of Pagination attributes and handlers -->
+            <!-- COMMENTED BY MUDIT - BECAUSE OF slds-table_striped COLOR FOR MP IS NOT WORKING SO REMOVED THE CLASS slds-table_striped
+            <table class="grid-table slds-table slds-table_bordered slds-max-medium-table_stacked-horizontal slds-table_striped">
+   -->
+            <table class="grid-table slds-table slds-table_bordered slds-max-medium-table_stacked-horizontal">
+                <thead>
+                    <tr class="slds-text-title">
+                        <aura:if isTrue="{!and(not(v.hideMP),or(v.gridType == 'Customer_Price_List',v.gridType == 'Merchandizing_Vehicle_Price_List'))}">
+                            <th style="width:3%;font-weight:bold;">
+                                <div class="slds-grid slds-grid_reverse" style="font-size:14px"></div>
+                            </th>
+                        </aura:if>
+                        <aura:iteration items="{!v.viewData.listOfPrimaryFields}" var="field">
+                            <th scope="col" style="{!(!empty(field.columnWidth)?'width:'+field.columnWidth+';':'') + 'font-weight:bold;' }">
+                                <aura:if isTrue="{!field.isIndicator}">
+                                    <div class="slds-float_right">
+                                        <lightning:icon class="indicator-icon" iconName="utility:info" size="x-small" alternativeText="Indicator"/>
+                                        <div class="{!$Browser.isTablet ? 'indicator-body slds-popover slds-popover_tooltip slds-nubbin_top-right' : 'indicator-body slds-popover slds-popover_tooltip slds-nubbin_bottom-right'}" role="tooltip" id="help" style="{!$Browser.isTablet == false ? 'position: absolute; top: -155px; right: -8%;' : 'position: absolute; top: 35px; right: -5%; margin-right: 5px'}">
+                                            <!--div class="indicator-body slds-popover slds-popover_tooltip slds-nubbin_bottom-right" role="tooltip" id="help" style="position: absolute; top: -155px; right: -8%;"-->
+                                            <div class="slds-popover__body">
+                                                <div class="indicator-item">
+                                                    <span class="icon">I</span>
+                                                    Inherited price from parent list
+                                                </div>
+                                                <div class="indicator-item">
+                                                    <span class="icon">G</span>
+                                                    Inherited price from group price
+                                                </div>
+                                                <div class="indicator-item">
+                                                    <span class="icon">Q</span>
+                                                    Prices listed have a minimum quantity
+                                                </div>
+                                                <div class="indicator-item">
+                                                    <span class="icon">C</span>
+                                                    Cut-at-roll length has a minimum quantity
+                                                </div>
+                                                <div class="indicator-item">
+                                                    <span class="icon">$</span>
+                                                    Billing price does not match net price
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <aura:set attribute="else">
+                                        <div
+                                             title="{!field.label}"
+                                             class="{!'slds-grid '+(true?' slds-grid_reverse':' slds-grid_align-right') + (field.field.Truncate_At_Max_Width__c?' slds-truncate':'')}"
+                                             style="{!'font-size:' + ($Browser.formFactor == 'PHONE' ? v.viewData.headerFontSizeMobile : v.viewData.headerFontSize)}">
+                                            <lightning:button variant="base" label="{!field.field.Short_Label__c}" class="{!'grid-header slds-text-align_right'}" value="{!field.fieldName}" onclick="{!c.doSort}"/>
+                                            <aura:if isTrue="{!v.viewData.sortField == field.fieldName}">
+                                                <lightning:icon class="sort-icon" iconName="{!v.viewData.sortOrder == 'asc'?'utility:arrowup':'utility:arrowdown'}" size="xx-small" alternativeText="sortorder"/>
+                                            </aura:if>
+                                        </div>
+                                    </aura:set>
+                                </aura:if>
+                            </th>
+                        </aura:iteration>
+                        <!--<th class="slds-cell-shrink slds-has-button-menu" style="width:2%;" scope="col"></th>-->
+                    </tr>
+                </thead>
+                <tbody>
+                    <aura:iteration items="{!v.currentList}" var="data" indexVar="index">
+                        <aura:if isTrue="{!$Browser.isPhone == false}">
+                            <!--tr style="{!$Browser.isTablet == true ? v.viewData.rowHeightTablet == null ? 'Height:50px;' : 'Height:' + v.viewData.rowHeightTablet + 'px;' : v.viewData.rowHeight == null ? 'Height:33px;' : 'Height:' + v.viewData.rowHeight + 'px;'}"-->
+                            <!--<tr class="{!if( data.Approval_Status__c == 'Waiting for Submission','Waiting_for_Submission','' )}">-->
+                            <!--<tr style="{!'background-color:'+data.rowColor}">-->
+                            <tr>
+                            	<!-- ADDED BY MUDIT - 02-12-2019 MOBILE PRICING-->
+                                <aura:if isTrue="{!and(not(v.hideMP),or(v.gridType == 'Customer_Price_List',v.gridType == 'Merchandizing_Vehicle_Price_List'))}">
+                                    <td> 
+                                        <!--
+                                        <c:MP_auraIfContains CPLdata="{!data}" MPcheckObj="{!v.MPCheckObj}" setIsWithdrawPrice="{!v.isWithdrawPrice}">
+                                        --> 
+                                        <c:MP_auraIfContains CPLdata="{!data}" MPcheckObj="{!v.MPCheckObj}">
+                                            <aura:if isTrue="{!v.showMenuBtn}">
+                                                <!--<lightning:buttonMenu onselect="{! c.handleMenuSelect }" alternativeText="Show menu" iconSize="small" name="{#data.Billing_Price_Roll__c}" class="{#data.Billing_Price_Cut__c}">-->
+                                                <lightning:buttonMenu onselect="{! c.handleMenuSelect }" alternativeText="Show menu" iconSize="small" name="{#data.Price_Grid_External_Id__c}" class="{#data.Product__r.Sub_Category__c}" variant="bare">
+                                                    <!--<lightning:menuItem value="{#'ECP-'+data.Id+'-'+v.viewData.sObjectName}" label="Edit Current Price"/>-->
+                                                    <aura:if isTrue="{!data.Inherited_Price_Indicator__c != 'I'}">                    
+                                                        <aura:if isTrue="{!not(data.isWithdrawPrice)}">                                                            
+                                                            <lightning:menuItem value="{#'ECP-'+data.Id+'-'+data.Price_Level__c}" label="Edit Current Price"/>
+                                                            <!--<lightning:menuItem value="{#'CLTP-'+data.Id}" label="Create Limited Time Price" />-->
+                                                            <lightning:menuItem value="{#'CLTP#'+data.Id+'#'+data.End_Date__c}" label="Create Limited Time Price" />
+                                                            <lightning:menuItem value="{#'RCP-'+data.Id}" label="Remove Current Price" />                                                                                                	
+                                                        </aura:if>
+                                                        <aura:set attribute="else">
+                                                            <lightning:menuItem value="{#'navigate-'+data.Id}" label="Navigate To Parent" />    
+                                                        </aura:set>
+                                                        <aura:if isTrue="{!data.isWithdrawPrice}">
+                                                            <lightning:menuItem value="{#'WP-'+data.Id}" label="Withdraw Price" />
+                                                        </aura:if>                                                        
+                                                    </aura:if>                                                    
+                                                </lightning:buttonMenu>
+                                                <aura:set attribute="else">   
+                                                    <aura:if isTrue="{!data.Inherited_Price_Indicator__c != 'I'}">
+                                                        <aura:if isTrue="{!!data.Buying_Group_Price__c}">
+                                                            <aura:if isTrue="{! or (data.Approval_Status__c != 'Waiting for Submission')}">
+                                                                <lightning:input type="checkbox" value="{!data.Id+'-'+data.Price_Grid_External_Id__c}" variant="label-hidden" onchange="{!c.onclickCheckbox}"/>
+                                                            </aura:if>
+                                                        </aura:if>
+                                                    </aura:if>
+                                                </aura:set>
+                                            </aura:if>                                                                                        
+                                        </c:MP_auraIfContains>                                        
+                                    </td>
+                                </aura:if>
+                                <!-- ADDED BY MUDIT - 02-12-2019 MOBILE PRICING-->
+                                
+                                <td scope="col" data-label="{#v.viewData.listOfPrimaryFields[0].label}" class="slds-hint-parent">                                    
+                                    <c:Grid_DataCell aura:id="datacell" record="{#data}" field="{#v.viewData.listOfPrimaryFields[0].fieldName}" type="{#v.viewData.listOfPrimaryFields[0].fieldType}"
+                                                     warehouseValue="{#v.viewData.warehouseValue}" sObjectName="{#v.viewData.sObjectName}"
+                                                     productCategoryId="{#v.viewData.productCategoryId}" isSecondaryLink="{#v.viewData.listOfPrimaryFields[0].isSecondaryLink}"
+                                                     recordId="{#data.Id}" truncateMaxWidth="{#v.viewData.listOfPrimaryFields[0].field.Truncate_At_Max_Width__c}"
+                                                     columnFontSizeMobile="{#v.viewData.columnFontSizeMobile}" columnFontSize="{#v.viewData.columnFontSize}" gridType="{!v.gridType}" accountId="{!v.accountId}" 
+                                                     productCategoryName="{!v.productCategoryName}" hasXchangePermission="{!v.viewData.hasXchangePermission}"
+                                                     />
+                                </td>
+                                
+                                <!--=== PASSING dataToCompare Parameter for MP Req. ADDED BY MUDIT ==--> 
+                                <aura:if isTrue="{!or (data.Approval_Status__c == 'Waiting for Submission', data.Approval_Status__c == 'Waiting for Approval', data.Approval_Status__c == 'Rejected')}">
+                                    <c:Grid_DataRow record="{#data}" fields="{#v.viewData.listOfPrimaryFields}" columnFontSize="{#v.viewData.columnFontSize}" dataToCompare="{#v.viewData.gridEditFields }" columnColor="{#data.rowColor}"/>
+                                    <aura:set attribute="else">
+                                    	<c:Grid_DataRow record="{#data}" fields="{#v.viewData.listOfPrimaryFields}" columnFontSize="{#v.viewData.columnFontSize}" columnColor="{#data.rowColor}"/>
+                                    </aura:set>
+                                </aura:if>
+                                
+                                
+                                <!--<td scope="col" class="slds-cell-shrink" data-label="Actions">
+                                    <div>
+                                        <lightning:buttonMenu class="slds-float_right" iconName="utility:chevrondown" iconSize="x-small" alternativeText="menu" menuAlignment="right" onselect="{!c.doDataMenuAction}" name="{!data.Id}" value="{!index}">
+                                            <c:Grid_If isTrue="{#v.viewData.hasAccessories}" record="{!data}" field="{!v.viewData.accessoryCheckField}" reverse="true">
+                                                <lightning:menuItem label="View Accessories" value="View_Accessories" title="{!data.Id}"/>
+                                            </c:Grid_If>
+                                            <lightning:menuItem label="Reports" value="Reports"/>
+                                            <lightning:menuItem label="Mohawk Xchange" value="Mohawk_Xchange"/>
+                                        </lightning:buttonMenu>
+
+                                    </div>
+                                </td>-->	
+                            </tr>
+                            <aura:set attribute="else">
+                                <tr>
+                                    <td scope="col" data-label="{#v.viewData.listOfPrimaryFields[0].label}" class="slds-hint-parent">
+                                        <c:Grid_DataCell aura:id="datacell" record="{#data}" field="{#v.viewData.listOfPrimaryFields[0].fieldName}" type="{#v.viewData.listOfPrimaryFields[0].fieldType}"
+                                                         warehouseValue="{#v.viewData.warehouseValue}" sObjectName="{#v.viewData.sObjectName}"
+                                                         productCategoryId="{#v.viewData.productCategoryId}" isSecondaryLink="{#v.viewData.listOfPrimaryFields[0].isSecondaryLink}"
+                                                         recordId="{#data.Id}" truncateMaxWidth="{#v.viewData.listOfPrimaryFields[0].field.Truncate_At_Max_Width__c}"
+                                                         columnFontSizeMobile="{#v.viewData.columnFontSizeMobile}" columnFontSize="{#v.viewData.columnFontSize}" gridType="{!v.gridType}" accountId="{!v.accountId}" 
+                                                         productCategoryName="{!v.productCategoryName}" hasXchangePermission="{!v.viewData.hasXchangePermission}"/>
+                                    </td>
+                                    <c:Grid_DataRow record="{#data}" fields="{#v.viewData.listOfPrimaryFields}" columnFontSize="{#v.viewData.columnFontSize}" />
+                                </tr>
+                            </aura:set>                            
+                        </aura:if>
+                    </aura:iteration>
+                </tbody>
+            </table>
+            <!-- Begin of Pagination attributes and handlers -->
+            <aura:if isTrue="{!$Browser.isPhone == false}">
+                <c:dataPagination currentPageNumber="{!v.pageNumber}" 
+                                  maxPageNumber="{!v.maxPage}" />
+            </aura:if>
+            <!-- End of Pagination attributes and handlers -->
+        </aura:if>
+    </div>
+    <aura:if isTrue="{!v.showMPEditPrice}">
+        <!--=====================================
+        <c:MP_EditPriceComponent 
+                                 recordId="{#v.selectedRecordId}"
+                                 objName="{#v.viewData.sObjectName}"
+                                 productCategoryId="{#v.viewData.productCategoryId}"
+                                 currentRollPrice="{#v.CRP}" 
+                                 currentCutPrice="{#v.CCP}" 
+                                 newRollPrice="{!v.CRP}" 
+                                 newCutPrice="{!v.CCP}" 
+                                 sliderDefaultVal="0.09"
+                                 openModal="{!v.showMPEditPrice}"
+                                 radioValue="TM1"/>
+     =====================================-->
+        <!--<c:MP_EditPriceComponent 
+                                 recordId="{#v.selectedRecordId}"
+                                 objName="{#v.viewData.sObjectName}"
+                                 productCategoryId="{#v.viewData.productCategoryId}"                                 
+                                 openModal="{!v.showMPEditPrice}"
+                                 PriceGridUniqueKey="{!v.PriceGridUniqueKey}"
+                                 subCategory="{!v.subCategory}"
+                                 isPriceGridRecord="{!v.isPriceGridRecord}"
+                                 gridType="{!v.gridType}"
+                                 />-->
+    </aura:if>
+    
+    <aura:if isTrue="{!v.showMPCreateLimitedTimePrice}">
+        <!--<c:MP_CreateLimitedTimePrice 
+                                     openModal="{!v.showMPCreateLimitedTimePrice}" 
+                                     singleRecordId="{!v.selectedRecordId}"
+                                     objName="{#v.viewData.sObjectName}"
+                                     productCategoryId="{#v.viewData.productCategoryId}"
+                                     PriceGridUniqueKey="{!v.PriceGridUniqueKey}"
+                                     subCategory="{!v.subCategory}" 
+                                     gridType="{!v.gridType}"
+                                     />-->
+    </aura:if>
+    
+    <aura:if isTrue="{!v.showRemoveConfirmation}">
+        <c:MP_Confirmation
+                           openModal="{!v.showRemoveConfirmation}"
+                           headerText="Remove Price"
+                           cplRecordId="{!v.RemoveRecordId}"
+                           modalFor="REMOVE"
+                           />
+    </aura:if>
+    <aura:if isTrue="{!v.showWithdrawConfirmation}">
+        <c:MP_Confirmation
+                           openModal="{!v.showWithdrawConfirmation}"
+                           headerText="Withdraw Price"
+                           cplRecordId="{!v.WithdrawRecordId}"
+                           modalFor="WITHDRAW"
+                           />
+    </aura:if>
+</aura:component>
+
+CONTROLLER
+({
+    // Begin of Pagination attributes and handlers 
+	doInit: function(component, event, helper) {        
+        console.log('### Grid_DataTable doInit');
+        console.log('Grid Type: ' + component.get('v.gridType'));         
+	},
+    dataChanged: function(component, event, helper) {
+        helper.dataChanged(component);
+        helper.renderPage(component, helper); // Added Helper in function - MB - 08/08/18 - Bug 64134
+    },    
+    renderPage: function(component, event, helper) {
+        helper.renderPage(component, helper); // Added Helper in function - MB - 08/08/18 - Bug 64134
+    },    
+    // End of Pagination attributes and handlers 
+    doSort: function(component, event, helper) {
+        var _sortField = event.getSource().get("v.value");
+        var _currentSortField = component.get("v.viewData.sortField");
+        var _currentSortOrder = component.get("v.viewData.sortOrder");
+        var _sortOrder = (_sortField == _currentSortField && _currentSortOrder == 'asc') ? 'desc' : 'asc';
+        component.set("v.viewData.sortField", _sortField);
+        component.set("v.viewData.sortOrder", _sortOrder);
+        console.log('Sort Field: ' + _sortField);
+        helper.updateData(component);
+    },
+    
+    doUpdateView: function(component, event, helper) {
+        //component.find("dataTableRaw").updateView();
+        helper.updateData(component);
+        console.log('### doUpdateView');
+    },
+    
+    doDataMenuAction: function(component, event, helper) {
+        var value = event.getParam("value");
+        
+        var _viewData = component.get("v.viewData");
+        var _index = event.getSource().get("v.value");
+        var _data = _viewData.listOfData[_index];
+        console.log(_data);
+        
+        if (value == 'View_Accessories') {
+            var productCategoryId = component.get("v.viewData.productCategoryId");
+            var modalBody;
+            $A.createComponent("c:Grid_DataAccessoriesView", {
+                "recordId": _data.Id,
+                "productCategoryId": productCategoryId,
+                "sObjectName": _viewData.sObjectName
+            },
+                               function(content, status) {
+                                   if (status === "SUCCESS") {
+                                       modalBody = content;
+                                       component.find('overlayLib').showCustomModal({
+                                           header: "Accessories",
+                                           body: modalBody,
+                                           showCloseButton: true,
+                                           cssClass: "my-modal"
+                                       })
+                                       
+                                   }
+                               });
+        }else if(value == 'Reports'){
+            var _prodCatName = helper.getSelectedProductCategoryName(component);
+            var _sellingStyleNum = _data.Product__r.Product_Style_Number__c;
+            var _sellingStyleName = _data.Product__r.Name;
+        	var evt = $A.get("e.force:navigateToComponent");
+        	evt.setParams({
+           	 componentDef : "c:Product_Price_Records",
+            	componentAttributes: {
+                	sellingStyleNum : _sellingStyleNum,
+                	category : _prodCatName,
+                    sellingStyleName : _sellingStyleName,
+                    timeStamp : Date.now()
+            	}/*,
+            	isredirect : true*/
+        	});
+        	evt.fire();
+        }else if(value == 'Mohawk_Xchange'){
+            var accountId ;
+            if(_viewData.account!=null){
+                var account = _viewData.account;
+                console.log('account id = >>>'+account.Id);
+                accountId = account.Id;
+            }else{
+              accountId='NA';
+            }
+            
+            helper.doCallout(component, "c.getProductId", {
+                "recordId": _data.Id,                
+                "sObjectName": _viewData.sObjectName
+            }, function(response){
+                console.log('in mohawk xchange call');
+                //let set = new Set();
+                var sectionValues=[];
+                var _status = response.getState();
+                if(_status === 'SUCCESS'){
+                    
+                    var productId = response.getReturnValue();
+                    console.log('in return statement from call'+productId);
+                    var productCategoryId = component.get("v.viewData.productCategoryId");
+                    var modalBody;
+                    console.log('gridtype===>'+component.get("v.gridType"));
+                    var gridType = component.get("v.gridType");
+                    var mashupName;
+                    if(gridType=='Customer_Price_List')
+                       mashupName = 'CPL Grid';
+                    if(gridType=='Price_Grid')
+                       mashupName = 'Price Grid';
+                    if(gridType=='Buying_Group_Grid')
+                       mashupName = 'BG Grid';
+                    if(gridType=='Merchandizing_Vehicle_Price_List')
+                       mashupName = 'MVPL Grid';
+                    
+                    $A.createComponent("c:mashupTabItem", {
+                        "mashupName": mashupName,
+                        "recordId": accountId,
+                        "isFromRecordPage":true,
+                        "gridProductId": productId
+                    },
+                                       function(content, status) {
+                                           if (status === "SUCCESS") {
+                                               
+                                               modalBody = content;
+                                               component.find('overlayLib').showCustomModal({
+                                                   header: mashupName,
+                                                   body: modalBody,
+                                                   showCloseButton: true,
+                                                   cssClass: "my-modal"
+                                               })
+                                               
+                                           }
+                                       });
+                }
+            });
+        }
+    },
+                    
+    doSecondaryDataDisplay: function(component, event, helper){
+        console.log(component);
+        console.log(event);
+        console.log(event.getSource());
+        component = component.find("datacell");
+        console.log(component);
+        var appEvent = $A.get("e.c:Grid_LaunchSecondaryModalEvent");
+        appEvent.setParams({
+            "sObjectName" : component.get("v.sObjectName"),
+            "recordId": component.get("v.recordId"),
+            "productCategoryId": component.get("v.productCategoryId"),
+            "warehouseValue": component.get("v.warehouseValue")
+        });
+        appEvent.fire();
+    },
+    
+    handleLaunchSecondaryEvent : function(component, event, helper){
+        
+        console.log('### Grid_DataTableController - handleLaunchSecondaryEvent');
+        var eventComp = event.getSource();
+        var viewData = component.get("v.viewData");
+        var gridType = component.get("v.gridType");
+        var currentList = component.get("v.currentList");
+        
+        var account = viewData[account];
+        var accountId;
+        if (account != undefined)
+            accountId = account.Id;
+        
+
+        var sellingStyleNum = event.getParam("sellingStyleNum");
+        var sellingStyleName = event.getParam("sellingStyleName");
+        var record = event.getParam("record");
+        var productCategoryName = viewData["productCategory"];
+        var hasAccessories = viewData["hasAccessories"];
+        var accessoryCheckField = viewData["accessoryCheckField"];
+        
+        helper.doCallout(component, "c.getSecondaryHeaderDisplay", {
+            "recordId" : eventComp.get("v.recordId"),
+            "sObjectName" : eventComp.get("v.sObjectName"),
+            "productCategoryId" : eventComp.get("v.productCategoryId")
+        }, function(response){
+            var _status = response.getState();
+            
+            if(_status === 'SUCCESS'){
+                var _label = response.getReturnValue();
+                var modalBody;
+                $A.createComponent("c:Grid_DataSecondaryView",
+                                   {
+                                       "sObjectName" : eventComp.get("v.sObjectName"),
+                                       "recordId": eventComp.get("v.recordId"),
+                                       "productCategoryId": eventComp.get("v.productCategoryId"),
+                                       "warehouseValue": eventComp.get("v.warehouseValue"),
+                                       "header" : _label,
+                                       
+                                       "productCategoryName": productCategoryName,
+                                       "sellingStyleNum": sellingStyleNum,
+                                       "sellingStyleName": sellingStyleName,
+                                       "accountId": accountId,
+                                       "gridType": gridType,
+                                       "hasAccessories": hasAccessories
+                                   },
+                                   function(content, status) {
+                                       if (status === "SUCCESS") {
+                                           modalBody = content;
+                                           component.find('overlayLib').showCustomModal({
+                                               /*header: _label,*/
+                                               body: modalBody,
+                                               showCloseButton: true,
+                                               cssClass: "grid-modal"
+                                           })
+
+                                       }
+
+                                   });
+            }
+        });
+    },
+    
+    // ADDED BY MUDIT -  - 02-12-2019 MOBILE PRICING//
+    handleMenuSelect: function(component, event, helper) {    	
+        console.log( "In handleMenuSelect --> " );
+        console.log( "currentList --> "+JSON.stringify( component.get("v.currentList") ) );
+        var _val = event.getParam("value");
+        console.log( "_val --> "+_val );
+        if( _val.split("-")[0] == 'ECP'){
+            var _dataToPass = [];
+            _dataToPass.push({
+                "PriceGridUniqueKey":event.getSource().get("v.name"),
+                "subCategory":event.getSource().get("v.class"),
+                "selectedRecordId":_val.split("-")[1],
+                "showMPEditPrice":true,
+                "isPriceGridRecord":(_val.split("-")[2] ? false : true )
+            });
+            helper.openModalFireEvent( component, event, helper,'MP_EditPriceComponent',_dataToPass );
+            /****************************
+            component.set("v.PriceGridUniqueKey",event.getSource().get("v.name"));
+            component.set("v.subCategory",event.getSource().get("v.class"));
+            component.set("v.selectedRecordId",_val.split("-")[1]);
+            component.set("v.showMPEditPrice",true);            
+            component.set("v.isPriceGridRecord",(_val.split("-")[2] ? false : true ));
+            ****************************/
+        }
+        if( _val.split("#")[0] == 'CLTP'){
+            console.log( 'HIT MENU BUTTON' + _val );
+            /*component.set("v.PriceGridUniqueKey",event.getSource().get("v.name"));
+            component.set("v.subCategory",event.getSource().get("v.class"));
+            component.set("v.showMPCreateLimitedTimePrice",true); 
+            component.set("v.selectedRecordId",_val.split("-")[1]);*/
+            var _dataToPass = [];
+            _dataToPass.push({
+                "PriceGridUniqueKey":event.getSource().get("v.name"),
+                "subCategory":event.getSource().get("v.class"),
+                //"selectedRecordId":_val.split("-")[1],
+                "selectedRecordId":_val.split("#")[1],
+                "showMPCreateLimitedTimePrice":true,
+                "rowEndDate":_val.split("#")[2]
+            });
+            
+            helper.openModalFireEvent( component, event, helper,'MP_CreateLimitedTimePrice',_dataToPass );
+            
+        }
+        if( _val.split("-")[0] == 'RCP'){
+            component.set("v.showRemoveConfirmation",true); 
+            component.set("v.RemoveRecordId",_val.split("-")[1]);              
+        }
+        if( _val.split("-")[0] == "navigate" ){
+            var _viewData = component.get("v.viewData");
+            var accId = _viewData.account.Id;
+            console.log( "accId --> "+accId );
+            var currentList = component.get("v.currentList");
+            var tmNum;
+            for( var i = 0;i<currentList.length;i++ ){
+                if( currentList[i].Id == _val.split("-")[1] ){
+                	tmNum = currentList[i].CPL_Product_Territory__r.Sales_Group_TM__c;    
+                }
+            }
+            console.log( "tmNum --> "+tmNum );
+            helper.helperAddUserAndAccToTerritory( component,accId,tmNum );                
+        }
+        if( _val.split("-")[0] == 'WP'){                    
+            //helper.callWithdrawRequest( component,_val.split("-")[1],_PCI,_obj );
+            component.set("v.showWithdrawConfirmation",true); 
+            component.set("v.WithdrawRecordId",_val.split("-")[1]);  
+        }
+    },
+    onclickCheckbox : function(component, event, helper){
+        var _prevVal = component.get("v.selectedCHK");
+        var _newVal = [];
+        var _isChecked = event.getSource().get("v.checked");
+        if( _isChecked ){
+            //ADD VALUE
+            _newVal.push( event.getSource().get("v.value") );
+            var finalList = _prevVal.concat( _newVal );
+            
+            //component.set( "v.selectedCHK",_prevVal.concat( _newVal ) );
+            component.set( "v.selectedCHK",helper.getUnique( finalList ) );
+        }else{
+            //REMOVE VALUE
+			var index = _prevVal.indexOf( event.getSource().get("v.value") );
+			if ( index > -1 ) {
+  				_prevVal.splice( index, 1 );
+			}
+            component.set( "v.selectedCHK",_prevVal );
+        }
+    },     
+    handleRowColorChange : function(component, event, helper){
+        var _recordId = event.getParam("recordId");
+        var _currentData = component.get("v.currentList");
+        var newData = [];
+        for( var i = 0; i < _currentData.length; i++ ){
+            if( _currentData[i].Id == _recordId ){
+                _currentData[i].Approval_Status__c = 'Waiting for Submission';
+                newData.push( _currentData[i] );
+                _currentData.splice( i,1 );
+            }
+        }
+        //component.set("v.currentList",_currentData);
+        component.set("v.currentList",newData.concat(_currentData));
+        /*var viewData = component.get("v.viewData");        
+        var records = viewData.listOfData;
+        if (records != null && records.length > 0) {
+            for( var i = 0; i < records.length; i++ ){
+                if( records[i].Id == _recordId )
+                    records[i].Approval_Status__c = 'Waiting for Submission';
+            }
+        }
+        component.set("v.viewData.listOfData",records);  */       
+    },
+    handleComponentEvent : function(component, event, helper){        
+        var _parm1 = event.getParam("componentName");
+        var _parm2 = event.getParam("isChanges");
+        
+        if( _parm1 == 'CANCEL' && _parm2 ){        
+            component.set("v.showMPCreateLimitedTimePrice",false);
+        }
+    },
+    // ADDED BY MUDIT -  - 02-12-2019 MOBILE PRICING//    
+})
+
+HELPER
+({
+    dataChanged: function(component) {
+        var pageNumber = 1;
+        component.set("v.pageNumber", pageNumber);
+    },
+	renderPage: function(component, helper) {
+        console.log('renderPage');        
+        this.sortingMP(component, helper);
+        var viewData = component.get("v.viewData");        
+        var records = viewData.listOfData;            
+        console.log('Grid Type: ' + component.get('v.gridType'));
+        console.log('### renderPage - rowHeight: ' + viewData.rowHeight);
+        console.log('### renderPage - rowHeightTablet: ' + viewData.rowHeightTablet);
+        console.log('Records: ' + JSON.stringify(records));
+        console.log('CC: ' + JSON.stringify(viewData.currentUserId));
+        component.set("v.currentLoggedInUser",viewData.currentUserId);
+        var device = $A.get("$Browser.formFactor");
+
+        if( device != 'PHONE' ){
+            var pageSize = viewData.numberOfRecords;            
+            if (pageSize == null || pageSize == undefined)
+                pageSize=25;
+            
+            if (records != null && records.length > 0) {
+                var pageNumber = component.get("v.pageNumber");
+                var pageRecords = records.slice((pageNumber-1)*pageSize, pageNumber*pageSize);
+                //component.set("v.currentList", pageRecords);                
+                component.set("v.currentList", this.setRowColor( component,pageRecords ) );                
+                component.set("v.maxPage", Math.floor((records.length+(pageSize - 1))/pageSize));
+            }
+        }
+        else {
+            component.set("v.currentList", records);
+        }
+        //component.set("v.selectedObj",viewData.sObjectName);            
+        
+        if( component.get( "v.gridType" ) == "Merchandizing_Vehicle_Price_List" ){            	                
+                //console.log( "records --> "+JSON.stringify( records ) );
+                var cplRecs = [];
+                var nonCplRecs = [];
+            	console.log( "size --> "+records.length );
+                for( var i in records ){                    
+                    //console.log( "eachRec --> "+JSON.stringify( records[i].Id ) );
+                    if( records[i].Id == undefined ){
+                        nonCplRecs.push( records[i] );    
+                    }else{ cplRecs.push( records[i] ); }    
+                }
+                console.log( "cplRecs --> "+JSON.stringify( cplRecs ) );
+                console.log( "nonCplRecs --> "+JSON.stringify( nonCplRecs ) );
+                var nonCPLProd = [];
+                var cplProds = [];
+                for( var i in nonCplRecs ){ nonCPLProd.push( nonCplRecs[i].Product__r.Residential_Product_Unique_Key__c ); } 
+                for( var i in cplRecs ){ cplProds.push( cplRecs[i].Product_Unique_Key__c ); } 
+		     	component.set( "v.cplProds", cplProds );
+		     	component.set( "v.nonCPLProd", nonCPLProd );                                
+                console.log( "cplProds --> "+JSON.stringify( cplProds ) );
+                console.log( "nonCPLProd --> "+JSON.stringify( nonCPLProd ) );
+                
+            }
+        
+	},
+    sortingMP : function( component,helper ){
+        var viewData = component.get("v.viewData"); 
+        console.log( viewData );
+        var records = viewData.listOfData;
+        var newData = [];
+        var tempData = [];
+
+	  if (records != null &&  records.length > 0) {
+            for( var i = 0; i <  records.length ; i++ ){
+                if( records[i].hasOwnProperty('Approval_Status__c') && records[i].Approval_Status__c != 'Approved in Salesforce'){
+                    newData.push( records[i] );
+                 //   records.splice( i,1 );
+                } else {
+                    tempData.push( records[i]);
+                }
+            }
+        }
+        //component.set("v.viewData.listOfData",newData.concat(tempData)); 
+        var _concatedData = newData.concat(tempData);                
+        var _finalData = [];
+        var today = $A.localizationService.formatDate(new Date(), "YYYY-MM-DD");
+        for( var i = 0; i < _concatedData.length ; i++ ){
+            if( _concatedData[i].hasOwnProperty('End_Date__c') ){
+                console.log( 'DATE ::' + Date.parse(_concatedData[i].End_Date__c) +' > ' + Date.parse(today) )
+                if( Date.parse(_concatedData[i].End_Date__c) >= Date.parse(today) ){
+                	_finalData.push( _concatedData[i] );    
+                }
+            }else{
+                _finalData.push( _concatedData[i] );
+            }
+        }
+        component.set("v.viewData.listOfData",_finalData); 
+    },
+    addUserAndAccToTerritory : function( component,event,helper ){
+        helper.helperAddUserAndAccToTerritory( component,accId );            
+    },
+    setRowColor : function( component,data ){
+        var _records = data; 
+        var _color = component.get("v.colorMap");
+        console.log( '==MS==COLOR==' );
+        console.log( _color );
+        console.log( '==MS==COLOR==' );
+        for( var i = 0; i < _records.length; i++ ){
+            for( var j = 0; j < _color.length; j++ ){    
+                if( _records[i].hasOwnProperty('CPL_Price_Id__c') ){
+                    if( _color[j].key == _records[i].Approval_Status__c ){
+                        _records[i].rowColor = _color[j].value;    
+                        break;
+                    }
+                }else{
+                    if( _records[i].Approval_Status__c == 'Waiting for Submission' && _color[j].key == 'New' ){
+                        _records[i].rowColor = _color[j].value;    
+                        break;
+                    }else if( _color[j].key == _records[i].Approval_Status__c ){
+                        _records[i].rowColor = _color[j].value;    
+                        break;
+                    }
+                }                                
+            }
+        }
+        return _records;
+    },
+    getUnique : function(array){
+        var uniqueArray = [];
+        
+        // Loop through array values
+        for(var i=0; i < array.length; i++){
+            if(uniqueArray.indexOf(array[i]) === -1) {
+                uniqueArray.push(array[i]);
+            }
+        }
+        return uniqueArray;
+    },
+    openModalFireEvent : function( component, event, helper,cmpName,parm ){
+        var omEvent = component.getEvent("openModalEvent");
+        omEvent.setParams({
+            "componentName":cmpName,
+            "params":parm
+        });
+        omEvent.fire();
+    },
+})
+
+CSS
+@media only screen and (max-width: 768px) {
+    .THIS td .slds-dropdown{
+        position: relative!important;
+    }
+}
+
+.THIS .slds-max-medium-table_stacked-horizontal th:before, 
+.THIS .slds-max-medium-table_stacked-horizontal td:before, 
+.THIS .slds-max-medium-table--stacked-horizontal th:before, 
+.THIS .slds-max-medium-table--stacked-horizontal td:before{
+    text-transform: capitalize;
+}
+
+.THIS .grid-header{
+    line-height: 1.25;
+    color: rgb(112, 110, 107);
+    letter-spacing: .0625rem;
+}
+
+.THIS .indicator-box{
+    border: 1px solid #DDD;
+    font-size: 14px;
+    text-transform: uppercase;
+    padding: 2px 4px;
+}
+
+.THIS .indicator-item{
+    margin-top: 5px;
+    font-weight: normal;
+}
+
+.THIS .indicator-item .icon{
+    border: 1px solid #DDD;
+    border-radius: 5px;
+    background-color: #FFF;
+    text-align: center;
+    margin-right: 5px;
+    font-size: 14px;
+    width: 22px;
+    color: #000;
+    display: inline-block;
+}
+.THIS .indicator-body{
+    display: none;
+}
+
+.THIS .indicator-icon:hover+.indicator-body{
+    display: block;
+}
+
+.THIS .link-secondary {
+     background:none!important;
+     color:rgb(0, 109, 204);
+     border:none; 
+     padding:0!important;
+     font: inherit;
+     /*border is optional*/
+     /*border-bottom:1px solid #444; */
+     cursor: pointer;
+}
+.THIS .innerDivWrapper {
+    min-height: 101%;
+    padding-bottom: 10px;
+}
+/**
+.THIS .Waiting_for_Submission{   
+    background-color: #c9c7c5;
+}
+.THIS .Waiting_for_Submission:hover{
+    background-color: #c9c7c5;
+}
+**/
